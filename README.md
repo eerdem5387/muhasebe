@@ -82,16 +82,24 @@ Demo giriş: **demo@muhasebe.test** / **Demo1234!**
 
 Framework Preset **Next.js** olmalı. Output Directory **boş** bırakın (`public` yazmayın).
 
-Environment Variables:
+### 1. Postgres ekleyin (zorunlu)
 
-- `DATABASE_URL` — Postgres bağlantısı (ör. Neon / Vercel Postgres)
-- `AUTH_SECRET` — en az 32 karakter rastgele dize
+Vercel Dashboard → **Storage → Create Database → Postgres** (veya Neon) → bu projeye bağlayın.
 
-İlk deploy sonrası şemayı uygulamak için:
+Bu `POSTGRES_URL` / `POSTGRES_PRISMA_URL` üretir. Uygulama bunları otomatik olarak `DATABASE_URL` olarak kullanır. İsterseniz aynı değeri `DATABASE_URL` adıyla da ekleyebilirsiniz.
+
+### 2. Environment Variables
+
+- `DATABASE_URL` — yoksa Storage'daki `POSTGRES_URL` yeterli
+- `AUTH_SECRET` — en az 32 karakter rastgele dize (Production + Preview)
+
+Redeploy sonrası `prisma migrate deploy` build içinde çalışır.
+
+Demo kullanıcı için bir kez:
 
 ```bash
-npx prisma migrate deploy
-npm run db:seed
+vercel env pull .env.production
+npx prisma db seed
 ```
 
 ## Muhasebeleşme Kuralları

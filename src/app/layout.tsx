@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: "Muhasebe SaaS - Ön Muhasebe, T-Cetveli & CRM",
   description:
     "Çok kiracılı (multi-tenant), çok şirketli çift taraflı kayıt (double-entry) ön muhasebe ve CRM platformu.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

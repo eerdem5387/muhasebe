@@ -52,6 +52,11 @@ export class UnbalancedLedgerError extends AppError {
 
 export function toErrorMessage(err: unknown): string {
   if (err instanceof AppError) return err.message;
-  if (err instanceof Error) return err.message;
+  if (err instanceof Error) {
+    if (err.message.includes("Environment variable not found: DATABASE_URL")) {
+      return "Veritabanı bağlantısı yok. Vercel → Storage'dan Postgres ekleyin veya Environment Variables'a DATABASE_URL yazın.";
+    }
+    return err.message;
+  }
   return "Beklenmeyen bir hata oluştu.";
 }
