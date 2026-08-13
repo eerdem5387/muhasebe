@@ -78,6 +78,22 @@ Uygulama: http://localhost:3000
 
 Demo giriş: **demo@muhasebe.test** / **Demo1234!**
 
+## Vercel
+
+Framework Preset **Next.js** olmalı. Output Directory **boş** bırakın (`public` yazmayın).
+
+Environment Variables:
+
+- `DATABASE_URL` — Postgres bağlantısı (ör. Neon / Vercel Postgres)
+- `AUTH_SECRET` — en az 32 karakter rastgele dize
+
+İlk deploy sonrası şemayı uygulamak için:
+
+```bash
+npx prisma migrate deploy
+npm run db:seed
+```
+
 ## Muhasebeleşme Kuralları
 
 | İşlem | Borç | Alacak |
