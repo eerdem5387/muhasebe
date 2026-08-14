@@ -27,8 +27,11 @@ export async function loginAction(
       where: { userId: user.id },
       orderBy: { createdAt: "asc" },
     });
+    if (!membership) {
+      return { error: "Bu hesabın okul erişimi yok. Yönetici ile iletişime geçin." };
+    }
     await setSessionCookie({ userId: user.id, email: user.email });
-    if (membership) await setActiveTenant(membership.tenantId);
+    await setActiveTenant(membership.tenantId);
   } catch (err) {
     return { error: toErrorMessage(err) };
   }
