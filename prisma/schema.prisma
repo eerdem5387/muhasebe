@@ -7,118 +7,75 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ===== ENUMS =====
-enum SubscriptionPlan {
-  FREE
-  STARTER
-  PRO
-  ENTERPRISE
-}
-
-enum TenantStatus {
-  ACTIVE
-  SUSPENDED
-  CANCELLED
-}
-
 enum TenantRole {
   ADMIN
   ACCOUNTANT
-  SALES
+  PRINCIPAL
+  FOUNDER
 }
 
-enum ContactType {
-  CUSTOMER
-  VENDOR
-  LEAD
+enum PaymentChannel {
+  EFT
+  CREDIT_CARD
+  CHECK
+  CASH
 }
 
-enum CrmStage {
-  NEW
-  CONTACTED
-  QUALIFIED
-  PROPOSAL
-  WON
-  LOST
-}
-
-enum ProductType {
-  PRODUCT
-  SERVICE
-}
-
-enum AccountType {
-  ASSET
-  LIABILITY
-  EQUITY
-  REVENUE
-  EXPENSE
-}
-
-enum InvoiceType {
-  SALES
-  PURCHASE
-}
-
-enum DocumentType {
-  INVOICE
-  PAYMENT
+enum RequestChannel {
+  CREDIT_CARD
   TRANSFER
-  MANUAL
-  OPENING
-  EXPENSE
-  INCOME
 }
 
-enum InvoiceStatus {
-  DRAFT
-  ISSUED
-  SENT
-  ACCEPTED
-  REJECTED
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum ScheduleStatus {
+  BLOCKED
+  EXPECTED
+  REALIZED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
   CANCELLED
 }
 
-enum EInvoiceProfile {
-  NONE
-  EARSIV
-  EFATURA
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
-enum ActivityType {
-  NOTE
-  CALL
-  MEETING
-  EMAIL
-  TASK
+enum AttachmentKind {
+  SLIP
+  CHECK_PHOTO
+  RECEIPT
+  OTHER
 }
 
-// ===== SAAS & AUTH =====
 model Tenant {
-  id               String                 @id @default(cuid())
-  name             String
-  subscriptionPlan SubscriptionPlan       @default(FREE)
-  status           TenantStatus           @default(ACTIVE)
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  companies        Company[]
-  tenantUsers      TenantUser[]
-  contacts         Contact[]
-  products         Product[]
-  taxes            Tax[]
-  accounts         Account[]
-  periods          FinancialPeriod[]
-  ledgerEntries    LedgerEntry[]
-  ledgerLines      LedgerLine[]
-  invoices         Invoice[]
-  invoiceLines     InvoiceLine[]
-  transfers        IntercompanyTransfer[]
-  activities       ContactActivity[]
+  id              String               @id @default(cuid())
+  name            String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  tenantUsers     TenantUser[]
+  students        Student[]
+  enrollments     Enrollment[]
+  cardBanks       CardBankSetting[]
+  scheduleLines   IncomeScheduleLine[]
+  collections     Collection[]
+  categories      LedgerCategory[]
+  expenses        Expense[]
+  expenseRequests ExpenseRequest[]
+  attachments     Attachment[]
 }
 
 model User {
   id           String       @id @default(cuid())
   email        String       @unique
+  name         String
   passwordHash String
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -129,7 +86,7 @@ model TenantUser {
   id        String     @id @default(cuid())
   tenantId  String
   userId    String
-  role      TenantRole @default(SALES)
+  role      TenantRole
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -139,265 +96,171 @@ model TenantUser {
   @@index([tenantId])
 }
 
-model Company {
-  id              String                 @id @default(cuid())
-  tenantId        String
-  name            String
-  taxNumber       String?
-  taxOffice       String?
-  address         String?
-  neighborhood    String?
-  district        String?
-  city            String?
-  country         String?                @default("Türkiye")
-  postalCode      String?
-  phone           String?
-  email           String?
-  iban            String?
-  tradeRegistryNo String?
-  mersisNo        String?
-  businessCenter  String?
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  accounts        Account[]
-  periods         FinancialPeriod[]
-  ledgerEntries   LedgerEntry[]
-  invoices        Invoice[]
-  transfersFrom   IntercompanyTransfer[] @relation("TransferFromCompany")
-  transfersTo     IntercompanyTransfer[] @relation("TransferToCompany")
+model Student {
+  id          String       @id @default(cuid())
+  tenantId    String
+  fullName    String
+  classroom   String?
+  parentPhone String?
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
 
   @@index([tenantId])
 }
 
-// ===== CRM & MASTER DATA (tenant-shared) =====
-model Contact {
-  id           String            @id @default(cuid())
-  tenantId     String
-  name         String
-  type         ContactType
-  email        String?
-  phone        String?
-  taxNumber    String?
-  tckn         String?
-  taxOffice    String?
-  address      String?
-  neighborhood String?
-  district     String?
-  city         String?
-  country      String?           @default("Türkiye")
-  postalCode   String?
-  crmStage     CrmStage          @default(NEW)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ledgerLines  LedgerLine[]
-  invoices     Invoice[]
-  activities   ContactActivity[]
+model CardBankSetting {
+  id          String       @id @default(cuid())
+  tenantId    String
+  bankName    String
+  blockDays   Int          @default(30)
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
 
   @@index([tenantId])
-  @@index([tenantId, type])
 }
 
-model ContactActivity {
+model Enrollment {
+  id               String               @id @default(cuid())
+  tenantId         String
+  studentId        String
+  academicYear     String
+  annualFee        Decimal              @db.Decimal(18, 2)
+  paymentChannel   PaymentChannel
+  installmentCount Int                  @default(1)
+  cardBankId       String?
+  enrolledAt       DateTime             @default(now())
+  status           EnrollmentStatus     @default(ACTIVE)
+  notes            String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student          Student              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  cardBank         CardBankSetting?     @relation(fields: [cardBankId], references: [id], onDelete: SetNull)
+  scheduleLines    IncomeScheduleLine[]
+  collections      Collection[]
+
+  @@index([tenantId])
+  @@index([studentId])
+}
+
+model IncomeScheduleLine {
+  id               String         @id @default(cuid())
+  tenantId         String
+  enrollmentId     String
+  installmentIndex Int
+  amount           Decimal        @db.Decimal(18, 2)
+  releaseDate      DateTime
+  yearMonth        String
+  status           ScheduleStatus @default(EXPECTED)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enrollment       Enrollment     @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, yearMonth])
+  @@index([enrollmentId])
+}
+
+model Collection {
+  id             String         @id @default(cuid())
+  tenantId       String
+  enrollmentId   String
+  amount         Decimal        @db.Decimal(18, 2)
+  collectedAt    DateTime
+  paymentChannel PaymentChannel
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enrollment     Enrollment     @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  attachments    Attachment[]
+
+  @@index([tenantId])
+  @@index([enrollmentId])
+}
+
+model LedgerCategory {
   id        String       @id @default(cuid())
   tenantId  String
-  contactId String
-  type      ActivityType @default(NOTE)
-  subject   String
-  notes     String?
-  dueDate   DateTime?
-  done      Boolean      @default(false)
+  type      CategoryType
+  name      String
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
 
+  @@unique([tenantId, type, name])
   @@index([tenantId])
-  @@index([contactId])
 }
 
-model Product {
-  id           String        @id @default(cuid())
+model ExpenseRequest {
+  id                  String         @id @default(cuid())
+  tenantId            String
+  title               String
+  quantity            Decimal        @db.Decimal(18, 4)
+  unitPrice           Decimal        @db.Decimal(18, 2)
+  total               Decimal        @db.Decimal(18, 2)
+  requesterName       String
+  channel             RequestChannel
+  status              RequestStatus  @default(PENDING)
+  notes               String?
+  createdById         String
+  principalApprovedAt DateTime?
+  principalApprovedBy String?
+  founderApprovedAt   DateTime?
+  founderApprovedBy   String?
+  rejectedAt          DateTime?
+  rejectedById        String?
+  rejectReason        String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  tenant              Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expenses            Expense[]
+
+  @@index([tenantId, status])
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  tenantId    String
+  categoryId  String
+  requestId   String?
+  amount      Decimal         @db.Decimal(18, 2)
+  spentAt     DateTime
+  channel     RequestChannel?
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category    LedgerCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  request     ExpenseRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  attachments Attachment[]
+
+  @@index([tenantId])
+  @@index([categoryId])
+}
+
+model Attachment {
+  id           String         @id @default(cuid())
   tenantId     String
-  name         String
-  type         ProductType   @default(PRODUCT)
-  unit         String        @default("adet")
-  defaultPrice Decimal       @default(0) @db.Decimal(18, 4)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoiceLines InvoiceLine[]
+  collectionId String?
+  expenseId    String?
+  kind         AttachmentKind
+  filename     String
+  mimeType     String
+  bytes        Bytes
+  createdAt    DateTime       @default(now())
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  collection   Collection?    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  expense      Expense?       @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
-}
-
-model Tax {
-  id           String        @id @default(cuid())
-  tenantId     String
-  name         String
-  rate         Decimal       @db.Decimal(18, 4)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoiceLines InvoiceLine[]
-
-  @@index([tenantId])
-}
-
-// ===== ACCOUNTING CORE =====
-model Account {
-  id            String                 @id @default(cuid())
-  tenantId      String
-  companyId     String
-  code          String
-  name          String
-  type          AccountType
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
-  tenant        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company       Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  ledgerLines   LedgerLine[]
-  transfersFrom IntercompanyTransfer[] @relation("TransferFromAccount")
-  transfersTo   IntercompanyTransfer[] @relation("TransferToAccount")
-
-  @@unique([companyId, code])
-  @@index([tenantId, companyId])
-}
-
-model FinancialPeriod {
-  id        String   @id @default(cuid())
-  tenantId  String
-  companyId String
-  startDate DateTime
-  endDate   DateTime
-  isClosed  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, companyId])
-}
-
-model LedgerEntry {
-  id           String       @id @default(cuid())
-  tenantId     String
-  companyId    String
-  date         DateTime
-  description  String?
-  documentType DocumentType @default(MANUAL)
-  documentId   String?
-  reversalOfId String?      @unique
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company      Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  lines        LedgerLine[]
-  reversalOf   LedgerEntry? @relation("EntryReversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
-  reversedBy   LedgerEntry? @relation("EntryReversal")
-
-  @@index([tenantId, companyId])
-  @@index([companyId, date])
-  @@index([documentType, documentId])
-}
-
-model LedgerLine {
-  id            String      @id @default(cuid())
-  tenantId      String
-  ledgerEntryId String
-  accountId     String
-  contactId     String?
-  debit         Decimal     @default(0) @db.Decimal(18, 4)
-  credit        Decimal     @default(0) @db.Decimal(18, 4)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ledgerEntry   LedgerEntry @relation(fields: [ledgerEntryId], references: [id], onDelete: Cascade)
-  account       Account     @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  contact       Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId])
-  @@index([accountId])
-  @@index([contactId])
-  @@index([ledgerEntryId])
-}
-
-// ===== COMMERCIAL & INTERCOMPANY =====
-model Invoice {
-  id              String          @id @default(cuid())
-  tenantId        String
-  companyId       String
-  contactId       String
-  type            InvoiceType
-  status          InvoiceStatus   @default(ISSUED)
-  einvoiceProfile EInvoiceProfile @default(NONE)
-  ettn            String?
-  dispatchType    String          @default("ELEKTRONIK")
-  invoiceNumber   String
-  issueDate       DateTime
-  dueDate         DateTime?
-  note            String?
-  netTotal        Decimal         @default(0) @db.Decimal(18, 4)
-  discountTotal   Decimal         @default(0) @db.Decimal(18, 4)
-  taxTotal        Decimal         @default(0) @db.Decimal(18, 4)
-  grandTotal      Decimal         @default(0) @db.Decimal(18, 4)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company         Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  contact         Contact         @relation(fields: [contactId], references: [id], onDelete: Restrict)
-  lines           InvoiceLine[]
-
-  @@unique([companyId, type, invoiceNumber])
-  @@index([tenantId, companyId])
-  @@index([companyId, issueDate])
-}
-
-model InvoiceLine {
-  id             String   @id @default(cuid())
-  tenantId       String
-  invoiceId      String
-  productId      String?
-  description    String?
-  unit           String   @default("Adet")
-  quantity       Decimal  @default(1) @db.Decimal(18, 4)
-  unitPrice      Decimal  @default(0) @db.Decimal(18, 4)
-  discountRate   Decimal  @default(0) @db.Decimal(18, 4)
-  discountAmount Decimal  @default(0) @db.Decimal(18, 4)
-  taxId          String?
-  taxRate        Decimal  @default(0) @db.Decimal(18, 4)
-  netAmount      Decimal  @default(0) @db.Decimal(18, 4)
-  taxAmount      Decimal  @default(0) @db.Decimal(18, 4)
-  lineTotal      Decimal  @default(0) @db.Decimal(18, 4)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-  tax            Tax?     @relation(fields: [taxId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId])
-  @@index([invoiceId])
-}
-
-model IntercompanyTransfer {
-  id            String   @id @default(cuid())
-  tenantId      String
-  fromCompanyId String
-  toCompanyId   String
-  fromAccountId String
-  toAccountId   String
-  amount        Decimal  @db.Decimal(18, 4)
-  description   String?
-  date          DateTime
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  fromCompany   Company  @relation("TransferFromCompany", fields: [fromCompanyId], references: [id], onDelete: Restrict)
-  toCompany     Company  @relation("TransferToCompany", fields: [toCompanyId], references: [id], onDelete: Restrict)
-  fromAccount   Account  @relation("TransferFromAccount", fields: [fromAccountId], references: [id], onDelete: Restrict)
-  toAccount     Account  @relation("TransferToAccount", fields: [toAccountId], references: [id], onDelete: Restrict)
-
-  @@index([tenantId])
+  @@index([collectionId])
+  @@index([expenseId])
 }

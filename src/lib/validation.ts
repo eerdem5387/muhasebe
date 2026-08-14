@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+const opt = z.string().trim().optional().or(z.literal(""));
 const decimalString = z
   .string()
   .trim()
@@ -8,118 +9,68 @@ const decimalString = z
   })
   .transform((v) => v.replace(",", "."));
 
-export const registerSchema = z
-  .object({
-    tenantName: z.string().trim().min(2, "En az 2 karakter."),
-    companyName: z.string().trim().min(2, "En az 2 karakter."),
-    email: z.string().trim().email("Geçerli bir e-posta girin."),
-    password: z.string().min(8, "Şifre en az 8 karakter olmalı."),
-  })
-  .strip();
-
 export const loginSchema = z.object({
   email: z.string().trim().email("Geçerli bir e-posta girin."),
   password: z.string().min(1, "Şifre gerekli."),
 });
 
-const opt = z.string().trim().optional().or(z.literal(""));
-
-export const companySchema = z.object({
-  name: z.string().trim().min(2, "Şirket adı gerekli."),
-  taxNumber: opt,
-  taxOffice: opt,
-  address: opt,
-  neighborhood: opt,
-  district: opt,
-  city: opt,
-  country: opt,
-  postalCode: opt,
-  phone: opt,
-  email: z.string().trim().email("Geçerli bir e-posta girin.").optional().or(z.literal("")),
-  iban: opt,
-  tradeRegistryNo: opt,
-  mersisNo: opt,
-  businessCenter: opt,
+export const userSchema = z.object({
+  name: z.string().trim().min(2, "Ad soyad gerekli."),
+  email: z.string().trim().email("Geçerli bir e-posta girin."),
+  password: z.string().min(6, "Şifre en az 6 karakter olmalı."),
+  role: z.enum(["ADMIN", "ACCOUNTANT", "PRINCIPAL", "FOUNDER"]),
 });
 
-export const contactSchema = z.object({
-  name: z.string().trim().min(2, "Cari adı gerekli."),
-  type: z.enum(["CUSTOMER", "VENDOR", "LEAD"]),
-  email: z.string().trim().email("Geçerli bir e-posta girin.").optional().or(z.literal("")),
-  phone: opt,
-  taxNumber: opt,
-  tckn: opt,
-  taxOffice: opt,
-  address: opt,
-  neighborhood: opt,
-  district: opt,
-  city: opt,
-  country: opt,
-  postalCode: opt,
-  crmStage: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "WON", "LOST"]).default("NEW"),
+export const categorySchema = z.object({
+  type: z.enum(["INCOME", "EXPENSE"]),
+  name: z.string().trim().min(2, "Kalem adı gerekli."),
 });
 
-export const activitySchema = z.object({
-  contactId: z.string().trim().min(1),
-  type: z.enum(["NOTE", "CALL", "MEETING", "EMAIL", "TASK"]).default("NOTE"),
-  subject: z.string().trim().min(1, "Konu gerekli."),
-  notes: z.string().trim().optional().or(z.literal("")),
-  dueDate: z.string().trim().optional().or(z.literal("")),
+export const cardBankSchema = z.object({
+  bankName: z.string().trim().min(2, "Banka adı gerekli."),
+  blockDays: z.coerce.number().int().min(0).max(365),
 });
 
-export const productSchema = z.object({
-  name: z.string().trim().min(2, "Ürün adı gerekli."),
-  type: z.enum(["PRODUCT", "SERVICE"]).default("PRODUCT"),
-  unit: z.string().trim().min(1).default("adet"),
-  defaultPrice: decimalString,
+export const studentSchema = z.object({
+  fullName: z.string().trim().min(2, "Öğrenci adı gerekli."),
+  classroom: opt,
+  parentPhone: opt,
+  notes: opt,
 });
 
-export const taxSchema = z.object({
-  name: z.string().trim().min(1, "Vergi adı gerekli."),
-  rate: decimalString,
+export const enrollmentSchema = z.object({
+  studentId: z.string().trim().min(1, "Öğrenci seçin."),
+  academicYear: z.string().trim().min(4, "Eğitim yılı gerekli."),
+  annualFee: decimalString,
+  paymentChannel: z.enum(["EFT", "CREDIT_CARD", "CHECK", "CASH"]),
+  installmentCount: z.coerce.number().int().min(1).max(24).default(1),
+  cardBankId: opt,
+  enrolledAt: z.string().trim().min(1, "Kayıt tarihi gerekli."),
+  notes: opt,
 });
 
-export const accountSchema = z.object({
-  code: z.string().trim().min(1, "Hesap kodu gerekli."),
-  name: z.string().trim().min(2, "Hesap adı gerekli."),
-  type: z.enum(["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"]),
+export const collectionSchema = z.object({
+  enrollmentId: z.string().trim().min(1, "Kayıt seçin."),
+  amount: decimalString,
+  collectedAt: z.string().trim().min(1, "Tarih gerekli."),
+  paymentChannel: z.enum(["EFT", "CREDIT_CARD", "CHECK", "CASH"]),
+  notes: opt,
 });
 
-export const invoiceLineSchema = z.object({
-  productId: z.string().trim().optional().or(z.literal("")),
-  description: z.string().trim().optional().or(z.literal("")),
-  unit: z.string().trim().optional().or(z.literal("")),
+export const expenseSchema = z.object({
+  categoryId: z.string().trim().min(1, "Gider kalemi seçin."),
+  amount: decimalString,
+  spentAt: z.string().trim().min(1, "Tarih gerekli."),
+  channel: z.enum(["CREDIT_CARD", "TRANSFER"]).optional().or(z.literal("")),
+  notes: opt,
+  requestId: opt,
+});
+
+export const expenseRequestSchema = z.object({
+  title: z.string().trim().min(3, "Talep adı gerekli."),
   quantity: decimalString,
   unitPrice: decimalString,
-  discountRate: z.string().trim().optional().or(z.literal("")),
-  taxId: z.string().trim().optional().or(z.literal("")),
+  requesterName: z.string().trim().min(2, "Talep eden adı gerekli."),
+  channel: z.enum(["CREDIT_CARD", "TRANSFER"]),
+  notes: opt,
 });
-
-export const invoiceSchema = z.object({
-  type: z.enum(["SALES", "PURCHASE"]),
-  contactId: z.string().trim().min(1, "Cari seçin."),
-  einvoiceProfile: z.enum(["NONE", "EARSIV", "EFATURA"]).default("NONE"),
-  dispatchType: z.enum(["ELEKTRONIK", "KAGIT"]).default("ELEKTRONIK"),
-  invoiceNumber: z.string().trim().min(1, "Fatura no gerekli."),
-  issueDate: z.string().trim().min(1, "Tarih gerekli."),
-  issueTime: z.string().trim().optional().or(z.literal("")),
-  dueDate: z.string().trim().optional().or(z.literal("")),
-  note: z.string().trim().optional().or(z.literal("")),
-  priceMode: z.enum(["EXCLUSIVE", "INCLUSIVE"]).default("EXCLUSIVE"),
-  lines: z.array(invoiceLineSchema).min(1, "En az bir kalem ekleyin."),
-});
-
-export const transferSchema = z.object({
-  fromCompanyId: z.string().trim().min(1),
-  toCompanyId: z.string().trim().min(1),
-  fromAccountId: z.string().trim().min(1),
-  toAccountId: z.string().trim().min(1),
-  amount: decimalString,
-  date: z.string().trim().min(1, "Tarih gerekli."),
-  description: z.string().trim().optional().or(z.literal("")),
-});
-
-export type RegisterInput = z.infer<typeof registerSchema>;
-export type LoginInput = z.infer<typeof loginSchema>;
-export type InvoiceInput = z.infer<typeof invoiceSchema>;
-export type TransferInput = z.infer<typeof transferSchema>;

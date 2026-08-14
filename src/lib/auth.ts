@@ -9,7 +9,6 @@ const SESSION_MAX_AGE = Number(process.env.SESSION_MAX_AGE ?? 60 * 60 * 24 * 7);
 
 export const SESSION_COOKIE = "muhasebe_session";
 export const ACTIVE_TENANT_COOKIE = "muhasebe_tenant";
-export const ACTIVE_COMPANY_COOKIE = "muhasebe_company";
 
 export interface SessionPayload {
   userId: string;

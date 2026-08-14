@@ -11,14 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar
-          email={ctx.email}
-          role={ctx.role}
-          tenants={ctx.memberships.map((m) => ({ id: m.tenantId, label: m.tenantName }))}
-          activeTenantId={ctx.tenantId}
-          companies={ctx.companies.map((c) => ({ id: c.id, label: c.name }))}
-          activeCompanyId={ctx.companyId}
-        />
+        <Topbar email={ctx.email} name={ctx.name} role={ctx.role} schoolName={ctx.tenantName} />
         <main className="flex-1 overflow-x-hidden p-4 lg:p-8">{children}</main>
       </div>
     </div>

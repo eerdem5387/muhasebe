@@ -1,126 +1,109 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "@/lib/auth";
-import { ACCOUNT_CODES } from "@/lib/chart-of-accounts";
-import { createCompany } from "@/server/companies";
-import { createInvoiceWithPosting, recordPayment } from "@/server/accounting/engine";
-import { createIntercompanyTransfer } from "@/server/accounting/intercompany";
+import { buildIncomeSchedule, scheduleStatus } from "@/server/income-schedule";
 
 const prisma = new PrismaClient();
+const PASSWORD = "123456";
 
-const DEMO_EMAIL = "demo@muhasebe.test";
-const DEMO_PASSWORD = "Demo1234!";
+async function upsertUser(email: string, name: string) {
+  const existing = await prisma.user.findUnique({ where: { email } });
+  const passwordHash = await hashPassword(PASSWORD);
+  if (existing) {
+    return prisma.user.update({ where: { id: existing.id }, data: { name, passwordHash } });
+  }
+  return prisma.user.create({ data: { email, name, passwordHash } });
+}
 
 async function main() {
-  const existing = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
-  if (existing) {
-    console.log(`Demo kullanıcısı (${DEMO_EMAIL}) zaten mevcut. Seed atlanıyor.`);
-    return;
+  const tenant =
+    (await prisma.tenant.findFirst({ orderBy: { createdAt: "asc" } })) ??
+    (await prisma.tenant.create({ data: { name: "Demo Okul" } }));
+
+  const users = [
+    { email: "demo@muhasebe.test", name: "Okul Yöneticisi", role: "ADMIN" as const },
+    { email: "muhasebe@okul.test", name: "Ayşe Muhasebe", role: "ACCOUNTANT" as const },
+    { email: "mudur@okul.test", name: "Mehmet Müdür", role: "PRINCIPAL" as const },
+    { email: "kurucu@okul.test", name: "Ali Kurucu", role: "FOUNDER" as const },
+  ];
+
+  for (const u of users) {
+    const user = await upsertUser(u.email, u.name);
+    await prisma.tenantUser.upsert({
+      where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
+      update: { role: u.role },
+      create: { tenantId: tenant.id, userId: user.id, role: u.role },
+    });
   }
 
-  const user = await prisma.user.create({
-    data: { email: DEMO_EMAIL, passwordHash: await hashPassword(DEMO_PASSWORD) },
+  const ziraat = await prisma.cardBankSetting.upsert({
+    where: { id: "seed-ziraat" },
+    update: { bankName: "Ziraat Bankası", blockDays: 30, active: true, tenantId: tenant.id },
+    create: { id: "seed-ziraat", tenantId: tenant.id, bankName: "Ziraat Bankası", blockDays: 30 },
+  }).catch(async () => {
+    const existing = await prisma.cardBankSetting.findFirst({
+      where: { tenantId: tenant.id, bankName: "Ziraat Bankası" },
+    });
+    if (existing) return existing;
+    return prisma.cardBankSetting.create({
+      data: { tenantId: tenant.id, bankName: "Ziraat Bankası", blockDays: 30 },
+    });
   });
 
-  const tenant = await prisma.tenant.create({
-    data: { name: "Demo Grup A.Ş.", subscriptionPlan: "PRO", status: "ACTIVE" },
-  });
-
-  await prisma.tenantUser.create({
-    data: { tenantId: tenant.id, userId: user.id, role: "ADMIN" },
-  });
-
-  const companyA = await createCompany({ tenantId: tenant.id, name: "Anadolu Ticaret A.Ş.", taxNumber: "1234567890", taxOffice: "Kadıköy" });
-  const companyB = await createCompany({ tenantId: tenant.id, name: "Ege Lojistik Ltd. Şti.", taxNumber: "9876543210", taxOffice: "Konak" });
-
-  await prisma.company.update({
-    where: { id: companyA.id },
-    data: { address: "Bağdat Cad. No:120", city: "İstanbul", phone: "0216 000 00 00", email: "info@anadoluticaret.test", iban: "TR00 0001 0000 0000 0000 0000 01" },
-  });
-  await prisma.company.update({
-    where: { id: companyB.id },
-    data: { address: "Alsancak Mah. 1453 Sk. No:5", city: "İzmir", phone: "0232 000 00 00", email: "info@egelojistik.test", iban: "TR00 0001 0000 0000 0000 0000 02" },
-  });
-
-  const kdv20 = await prisma.tax.create({ data: { tenantId: tenant.id, name: "KDV %20", rate: 20 } });
-  const kdv10 = await prisma.tax.create({ data: { tenantId: tenant.id, name: "KDV %10", rate: 10 } });
-  await prisma.tax.create({ data: { tenantId: tenant.id, name: "KDV %1", rate: 1 } });
-
-  const customer = await prisma.contact.create({
-    data: { tenantId: tenant.id, name: "Yıldız Market Ltd.", type: "CUSTOMER", email: "muhasebe@yildizmarket.test", phone: "0212 111 11 11", taxNumber: "1112223334", taxOffice: "Beşiktaş", address: "Barbaros Bulvarı No:10", city: "İstanbul", crmStage: "WON" },
-  });
-  const vendor = await prisma.contact.create({
-    data: { tenantId: tenant.id, name: "Berk Toptan Gıda", type: "VENDOR", email: "info@berktoptan.test", phone: "0312 222 22 22", taxNumber: "5556667778", taxOffice: "Çankaya", address: "Atatürk Blv. No:200", city: "Ankara", crmStage: "WON" },
-  });
-  await prisma.contact.create({
-    data: { tenantId: tenant.id, name: "Deniz Yazılım A.Ş.", type: "LEAD", email: "satis@denizyazilim.test", crmStage: "PROPOSAL" },
-  });
-
-  const consulting = await prisma.product.create({
-    data: { tenantId: tenant.id, name: "Danışmanlık Hizmeti", type: "SERVICE", unit: "saat", defaultPrice: 1000 },
-  });
-  const paper = await prisma.product.create({
-    data: { tenantId: tenant.id, name: "A4 Fotokopi Kağıdı", type: "PRODUCT", unit: "koli", defaultPrice: 150 },
-  });
-
-  // Sales invoice (company A -> customer), KDV exclusive.
-  await createInvoiceWithPosting({
-    tenantId: tenant.id,
-    companyId: companyA.id,
-    type: "SALES",
-    contactId: customer.id,
-    invoiceNumber: "SAT-2026-0001",
-    issueDate: new Date("2026-01-15"),
-    priceMode: "EXCLUSIVE",
-    lines: [
-      { productId: consulting.id, quantity: 10, unitPrice: 1000, taxId: kdv20.id },
-      { productId: paper.id, quantity: 20, unitPrice: 150, taxId: kdv10.id },
+  await prisma.ledgerCategory.createMany({
+    data: [
+      { tenantId: tenant.id, type: "EXPENSE", name: "Kırtasiye" },
+      { tenantId: tenant.id, type: "EXPENSE", name: "Temizlik" },
+      { tenantId: tenant.id, type: "EXPENSE", name: "Yemek" },
+      { tenantId: tenant.id, type: "INCOME", name: "Kayıt ücreti" },
     ],
+    skipDuplicates: true,
   });
 
-  // Purchase invoice (company A <- vendor).
-  await createInvoiceWithPosting({
-    tenantId: tenant.id,
-    companyId: companyA.id,
-    type: "PURCHASE",
-    contactId: vendor.id,
-    invoiceNumber: "ALIS-2026-0001",
-    issueDate: new Date("2026-01-20"),
-    priceMode: "EXCLUSIVE",
-    lines: [{ productId: paper.id, quantity: 100, unitPrice: 120, taxId: kdv20.id }],
-  });
+  let student = await prisma.student.findFirst({ where: { tenantId: tenant.id, fullName: "Elif Yılmaz" } });
+  if (!student) {
+    student = await prisma.student.create({
+      data: { tenantId: tenant.id, fullName: "Elif Yılmaz", classroom: "3-A", parentPhone: "0532 000 00 00" },
+    });
+  }
 
-  // Collection from customer (tahsilat) into the bank.
-  await recordPayment({
-    tenantId: tenant.id,
-    companyId: companyA.id,
-    contactId: customer.id,
-    direction: "COLLECTION",
-    amount: 5000,
-    date: new Date("2026-01-25"),
-    via: "BANK",
-    description: "Yıldız Market kısmi tahsilat",
-  });
+  const hasEnrollment = await prisma.enrollment.findFirst({ where: { studentId: student.id } });
+  if (!hasEnrollment) {
+    const enrolledAt = new Date();
+    const drafts = buildIncomeSchedule({
+      annualFee: 100000,
+      installmentCount: 10,
+      paymentDate: enrolledAt,
+      blockDays: ziraat.blockDays,
+    });
+    await prisma.enrollment.create({
+      data: {
+        tenantId: tenant.id,
+        studentId: student.id,
+        academicYear: `${enrolledAt.getFullYear()}-${enrolledAt.getFullYear() + 1}`,
+        annualFee: 100000,
+        paymentChannel: "CREDIT_CARD",
+        installmentCount: 10,
+        cardBankId: ziraat.id,
+        enrolledAt,
+        scheduleLines: {
+          create: drafts.map((line) => ({
+            tenantId: tenant.id,
+            installmentIndex: line.installmentIndex,
+            amount: line.amount,
+            releaseDate: line.releaseDate,
+            yearMonth: line.yearMonth,
+            status: scheduleStatus(line.releaseDate, false),
+          })),
+        },
+      },
+    });
+  }
 
-  // Intercompany transfer: company A funds company B.
-  const bankA = await prisma.account.findFirstOrThrow({
-    where: { tenantId: tenant.id, companyId: companyA.id, code: ACCOUNT_CODES.BANK },
-  });
-  const bankB = await prisma.account.findFirstOrThrow({
-    where: { tenantId: tenant.id, companyId: companyB.id, code: ACCOUNT_CODES.BANK },
-  });
-  await createIntercompanyTransfer({
-    tenantId: tenant.id,
-    fromCompanyId: companyA.id,
-    toCompanyId: companyB.id,
-    fromAccountId: bankA.id,
-    toAccountId: bankB.id,
-    amount: 25000,
-    date: new Date("2026-02-01"),
-    description: "Grup içi nakit desteği",
-  });
-
-  console.log("Seed tamamlandı.");
-  console.log(`  Giriş: ${DEMO_EMAIL}  Şifre: ${DEMO_PASSWORD}`);
+  console.log("Seed tamamlandı. Şifre (tümü): 123456");
+  console.log("  demo@muhasebe.test  (Yönetici)");
+  console.log("  muhasebe@okul.test  (Muhasebe)");
+  console.log("  mudur@okul.test     (Müdür)");
+  console.log("  kurucu@okul.test    (Kurucu)");
 }
 
 main()

@@ -1,7 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
 import {
-  ACTIVE_COMPANY_COOKIE,
   ACTIVE_TENANT_COOKIE,
   SESSION_COOKIE,
   SessionPayload,
@@ -30,7 +29,6 @@ export async function clearSession(): Promise<void> {
   const store = await cookies();
   store.delete(SESSION_COOKIE);
   store.delete(ACTIVE_TENANT_COOKIE);
-  store.delete(ACTIVE_COMPANY_COOKIE);
 }
 
 export async function readSession(): Promise<SessionPayload | null> {
@@ -46,24 +44,9 @@ export async function setActiveTenant(tenantId: string): Promise<void> {
     ...baseCookieOptions,
     maxAge: sessionMaxAge(),
   });
-  // Company selection is tenant-specific; clear it when tenant changes.
-  store.delete(ACTIVE_COMPANY_COOKIE);
-}
-
-export async function setActiveCompany(companyId: string): Promise<void> {
-  const store = await cookies();
-  store.set(ACTIVE_COMPANY_COOKIE, companyId, {
-    ...baseCookieOptions,
-    maxAge: sessionMaxAge(),
-  });
 }
 
 export async function readActiveTenantCookie(): Promise<string | undefined> {
   const store = await cookies();
   return store.get(ACTIVE_TENANT_COOKIE)?.value;
-}
-
-export async function readActiveCompanyCookie(): Promise<string | undefined> {
-  const store = await cookies();
-  return store.get(ACTIVE_COMPANY_COOKIE)?.value;
 }

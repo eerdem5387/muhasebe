@@ -27,6 +27,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Protect everything except Next internals, static assets and the health check.
-  matcher: ["/((?!api/health|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api/health|_next/static|_next/image|favicon.ico|favicon.svg|icon.svg).*)"],
 };

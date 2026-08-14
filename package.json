@@ -2,7 +2,7 @@
   "name": "muhasebe-saas",
   "version": "0.1.0",
   "private": true,
-  "description": "Multi-tenant, multi-company Pre-Accounting + Double-Entry Ledger + CRM SaaS",
+  "description": "Okul kayıt ücreti, tahsilat ve gider onay sistemi",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",

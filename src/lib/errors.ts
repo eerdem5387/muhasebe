@@ -38,18 +38,6 @@ export class ValidationError extends AppError {
   }
 }
 
-/** Raised when a ledger entry's debit and credit totals do not balance. */
-export class UnbalancedLedgerError extends AppError {
-  constructor(debit: string, credit: string) {
-    super(
-      `Yevmiye fişi dengesiz: Borç (${debit}) ile Alacak (${credit}) eşit değil. İşlem geri alındı.`,
-      "UNBALANCED_LEDGER",
-      422,
-    );
-    this.name = "UnbalancedLedgerError";
-  }
-}
-
 export function toErrorMessage(err: unknown): string {
   if (err instanceof AppError) return err.message;
   if (err instanceof Error) {

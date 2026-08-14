@@ -18,7 +18,7 @@ export function ActionForm({
 }) {
   const [state, formAction] = useActionState(action, emptyState);
   return (
-    <form action={formAction} className={className ?? "space-y-4"}>
+    <form action={formAction} encType="multipart/form-data" className={className ?? "space-y-4"}>
       <FormError message={state.error} />
       <FormSuccess message={state.success} />
       {children}

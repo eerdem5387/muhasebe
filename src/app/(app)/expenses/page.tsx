@@ -1,170 +1,108 @@
-import { requireAuth } from "@/lib/context";
-import { recordExpenseAction, recordIncomeAction } from "@/app/actions/vouchers";
-import { PageHeader, EmptyState } from "@/components/page-header";
+import { requireAuth, canManageOperations } from "@/lib/context";
+import { createExpenseAction } from "@/app/actions/expenses";
+import { PageHeader } from "@/components/page-header";
 import { ActionForm } from "@/components/action-form";
-import { Badge } from "@/components/ui";
-import { fmtDate, fmtMoney, todayISO } from "@/lib/format";
+import { CHANNEL_TR, fmtDate, fmtMoney, todayISO } from "@/lib/format";
 
 export default async function ExpensesPage() {
   const ctx = await requireAuth();
-
-  if (!ctx.companyId) {
-    return (
-      <div>
-        <PageHeader title="Gelir / Gider Fişleri" />
-        <EmptyState message="Fiş girmek için önce bir şirket seçin." />
-      </div>
-    );
-  }
-
-  const [expenseAccounts, incomeAccounts, contacts, recent] = await Promise.all([
-    ctx.db.account.findMany({ where: { companyId: ctx.companyId, type: "EXPENSE" }, orderBy: { code: "asc" } }),
-    ctx.db.account.findMany({ where: { companyId: ctx.companyId, type: "REVENUE" }, orderBy: { code: "asc" } }),
-    ctx.db.contact.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-    ctx.db.ledgerEntry.findMany({
-      where: { companyId: ctx.companyId, documentType: { in: ["EXPENSE", "INCOME"] } },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      take: 20,
-      include: { lines: true },
+  const canWrite = canManageOperations(ctx.role);
+  const [expenses, categories, approvedRequests] = await Promise.all([
+    ctx.db.expense.findMany({
+      orderBy: { spentAt: "desc" },
+      include: {
+        category: true,
+        attachments: { select: { id: true, filename: true } },
+        request: { select: { title: true } },
+      },
     }),
+    ctx.db.ledgerCategory.findMany({ where: { type: "EXPENSE" }, orderBy: { name: "asc" } }),
+    ctx.db.expenseRequest.findMany({ where: { status: "APPROVED" }, orderBy: { createdAt: "desc" } }),
   ]);
 
   return (
     <div>
-      <PageHeader title="Gelir / Gider Fişleri" description={`${ctx.company?.name} · Kasa/banka/veresiye gelir ve gider kayıtları.`} />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="card p-5">
-          <h2 className="mb-4 font-semibold text-slate-800">Gider fişi</h2>
-          <ActionForm action={recordExpenseAction} submitLabel="Gideri kaydet">
-            <div>
-              <label className="label" htmlFor="expenseAccountId">Gider hesabı</label>
-              <select id="expenseAccountId" name="expenseAccountId" className="input" required>
-                <option value="">Seçin…</option>
-                {expenseAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label" htmlFor="e-net">Net tutar</label>
-                <input id="e-net" name="netAmount" className="input" inputMode="decimal" required />
-              </div>
-              <div>
-                <label className="label" htmlFor="e-rate">KDV %</label>
-                <input id="e-rate" name="taxRate" className="input" inputMode="decimal" defaultValue="20" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label" htmlFor="e-via">Ödeme</label>
-                <select id="e-via" name="via" className="input" defaultValue="CASH">
-                  <option value="CASH">Kasa</option>
-                  <option value="BANK">Banka</option>
-                  <option value="ON_ACCOUNT">Veresiye (Satıcı)</option>
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="e-date">Tarih</label>
-                <input id="e-date" name="date" type="date" className="input" defaultValue={todayISO()} required />
-              </div>
-            </div>
-            <div>
-              <label className="label" htmlFor="e-contact">Cari (veresiye ise)</label>
-              <select id="e-contact" name="contactId" className="input">
-                <option value="">-</option>
-                {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="e-desc">Açıklama</label>
-              <input id="e-desc" name="description" className="input" />
-            </div>
-          </ActionForm>
+      <PageHeader title="Giderler" description="Kalem seçin, tutarı ve makbuzu ekleyin." />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2 overflow-hidden card">
+          <table className="w-full">
+            <thead className="border-b border-slate-200 bg-slate-50">
+              <tr>
+                <th className="th">Tarih</th>
+                <th className="th">Kalem</th>
+                <th className="th text-right">Tutar</th>
+                <th className="th">Belge</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {expenses.map((e) => (
+                <tr key={e.id}>
+                  <td className="td">{fmtDate(e.spentAt)}</td>
+                  <td className="td">
+                    {e.category.name}
+                    {e.request ? <span className="block text-xs text-slate-400">{e.request.title}</span> : null}
+                  </td>
+                  <td className="td text-right">{fmtMoney(Number(e.amount))}</td>
+                  <td className="td">
+                    {e.attachments.map((a) => (
+                      <a key={a.id} href={`/api/attachments/${a.id}`} className="text-brand-600 underline" target="_blank">{a.filename}</a>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+              {expenses.length === 0 && (
+                <tr><td className="td text-slate-400" colSpan={4}>Henüz gider yok.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
-
-        <div className="card p-5">
-          <h2 className="mb-4 font-semibold text-slate-800">Gelir fişi</h2>
-          {incomeAccounts.length === 0 ? (
-            <p className="text-sm text-slate-500">Gelir (REVENUE) hesabı bulunamadı. Hesap planından ekleyin (örn. 649).</p>
-          ) : (
-            <ActionForm action={recordIncomeAction} submitLabel="Geliri kaydet">
+        {canWrite && (
+          <div className="card p-5">
+            <h2 className="mb-4 font-semibold text-slate-800">Gider kaydet</h2>
+            <ActionForm action={createExpenseAction} submitLabel="Kaydet">
               <div>
-                <label className="label" htmlFor="incomeAccountId">Gelir hesabı</label>
-                <select id="incomeAccountId" name="incomeAccountId" className="input" required>
+                <label className="label" htmlFor="categoryId">Gider kalemi</label>
+                <select id="categoryId" name="categoryId" className="input" required>
                   <option value="">Seçin…</option>
-                  {incomeAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label" htmlFor="i-net">Net tutar</label>
-                  <input id="i-net" name="netAmount" className="input" inputMode="decimal" required />
-                </div>
-                <div>
-                  <label className="label" htmlFor="i-rate">KDV %</label>
-                  <input id="i-rate" name="taxRate" className="input" inputMode="decimal" defaultValue="20" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label" htmlFor="i-via">Tahsilat</label>
-                  <select id="i-via" name="via" className="input" defaultValue="CASH">
-                    <option value="CASH">Kasa</option>
-                    <option value="BANK">Banka</option>
-                    <option value="ON_ACCOUNT">Veresiye (Alıcı)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label" htmlFor="i-date">Tarih</label>
-                  <input id="i-date" name="date" type="date" className="input" defaultValue={todayISO()} required />
-                </div>
-              </div>
-              <div>
-                <label className="label" htmlFor="i-contact">Cari (veresiye ise)</label>
-                <select id="i-contact" name="contactId" className="input">
-                  <option value="">-</option>
-                  {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="label" htmlFor="i-desc">Açıklama</label>
-                <input id="i-desc" name="description" className="input" />
+                <label className="label" htmlFor="amount">Tutar</label>
+                <input id="amount" name="amount" className="input" required />
+              </div>
+              <div>
+                <label className="label" htmlFor="spentAt">Tarih</label>
+                <input id="spentAt" name="spentAt" type="date" className="input" defaultValue={todayISO()} required />
+              </div>
+              <div>
+                <label className="label" htmlFor="channel">Kanal</label>
+                <select id="channel" name="channel" className="input">
+                  <option value="">—</option>
+                  <option value="CREDIT_CARD">{CHANNEL_TR.CREDIT_CARD}</option>
+                  <option value="TRANSFER">{CHANNEL_TR.TRANSFER}</option>
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="requestId">Onaylı talep (opsiyonel)</label>
+                <select id="requestId" name="requestId" className="input">
+                  <option value="">—</option>
+                  {approvedRequests.map((r) => (
+                    <option key={r.id} value={r.id}>{r.title} · {fmtMoney(Number(r.total))}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="file">Makbuz / slip</label>
+                <input id="file" name="file" type="file" accept="image/*,.pdf" className="input" required />
+              </div>
+              <div>
+                <label className="label" htmlFor="notes">Not</label>
+                <input id="notes" name="notes" className="input" />
               </div>
             </ActionForm>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-6 card overflow-hidden">
-        <div className="border-b border-slate-200 px-5 py-4"><h2 className="font-semibold text-slate-800">Son gelir/gider fişleri</h2></div>
-        <table className="w-full">
-          <thead className="border-b border-slate-100 bg-slate-50">
-            <tr>
-              <th className="th">Tarih</th>
-              <th className="th">Tür</th>
-              <th className="th">Açıklama</th>
-              <th className="th text-right">Tutar</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {recent.map((e) => {
-              const total = e.lines.reduce((s, l) => s + Number(l.debit), 0);
-              return (
-                <tr key={e.id}>
-                  <td className="td">{fmtDate(e.date)}</td>
-                  <td className="td">
-                    <Badge color={e.documentType === "INCOME" ? "green" : "amber"}>
-                      {e.documentType === "INCOME" ? "Gelir" : "Gider"}
-                    </Badge>
-                  </td>
-                  <td className="td">{e.description ?? "-"}</td>
-                  <td className="td text-right font-medium">{fmtMoney(total)}</td>
-                </tr>
-              );
-            })}
-            {recent.length === 0 && <tr><td className="td text-slate-400" colSpan={4}>Henüz kayıt yok.</td></tr>}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
     </div>
   );

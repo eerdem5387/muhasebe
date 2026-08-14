@@ -4,29 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
-interface NavItem {
-  href: string;
-  label: string;
-  group: string;
-}
-
-const NAV: NavItem[] = [
+const NAV = [
   { href: "/", label: "Panel", group: "Genel" },
-  { href: "/invoices", label: "Faturalar", group: "Ticari" },
-  { href: "/expenses", label: "Gelir / Gider Fişleri", group: "Ticari" },
-  { href: "/transfers", label: "Şirketler Arası Transfer", group: "Ticari" },
-  { href: "/journal", label: "Yevmiye (T-Cetveli)", group: "Muhasebe" },
-  { href: "/accounts", label: "Hesap Planı", group: "Muhasebe" },
-  { href: "/reports/statement", label: "Cari Ekstre", group: "Raporlar" },
-  { href: "/reports/trial-balance", label: "Mizan", group: "Raporlar" },
-  { href: "/reports/vat", label: "KDV Beyanı", group: "Raporlar" },
-  { href: "/reports/income-statement", label: "Gelir Tablosu", group: "Raporlar" },
-  { href: "/reports/balance-sheet", label: "Bilanço", group: "Raporlar" },
-  { href: "/reports/aging", label: "Cari Yaşlandırma", group: "Raporlar" },
-  { href: "/contacts", label: "Cariler / CRM", group: "Kartlar" },
-  { href: "/products", label: "Ürün & Hizmet", group: "Kartlar" },
-  { href: "/taxes", label: "Vergiler", group: "Kartlar" },
-  { href: "/companies", label: "Şirketler", group: "Ayarlar" },
+  { href: "/students", label: "Öğrenciler / Kayıtlar", group: "Tahsilat" },
+  { href: "/collections", label: "Tahsilatlar", group: "Tahsilat" },
+  { href: "/income", label: "Gelir planı", group: "Tahsilat" },
+  { href: "/expenses", label: "Giderler", group: "Harcama" },
+  { href: "/requests", label: "Harcama talepleri", group: "Harcama" },
+  { href: "/settings", label: "Ayarlar", group: "Yönetim" },
 ];
 
 export function Sidebar() {
@@ -37,9 +22,9 @@ export function Sidebar() {
     <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white lg:block">
       <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-6">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
-          M
+          O
         </div>
-        <span className="text-lg font-semibold text-slate-800">Muhasebe</span>
+        <span className="text-lg font-semibold text-slate-800">Okul Muhasebe</span>
       </div>
       <nav className="space-y-6 p-4">
         {groups.map((group) => (
@@ -49,8 +34,7 @@ export function Sidebar() {
             </p>
             <div className="space-y-1">
               {NAV.filter((n) => n.group === group).map((item) => {
-                const active =
-                  item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
                 return (
                   <Link
                     key={item.href}

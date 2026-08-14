@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Muhasebe SaaS - Ön Muhasebe, T-Cetveli & CRM",
-  description:
-    "Çok kiracılı (multi-tenant), çok şirketli çift taraflı kayıt (double-entry) ön muhasebe ve CRM platformu.",
+  title: "Okul Muhasebe",
+  description: "Okul kayıt ücreti, tahsilat ve gider onay sistemi.",
   icons: {
     icon: [
       { url: "/favicon.ico" },
