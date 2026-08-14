@@ -17,28 +17,33 @@ export interface AuthContext {
 }
 
 export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
-  const session = await readSession();
-  if (!session) return null;
+  try {
+    const session = await readSession();
+    if (!session) return null;
 
-  const memberships = await prisma.tenantUser.findMany({
-    where: { userId: session.userId },
-    include: { tenant: true, user: true },
-    orderBy: { createdAt: "asc" },
-  });
-  if (memberships.length === 0) return null;
+    const memberships = await prisma.tenantUser.findMany({
+      where: { userId: session.userId },
+      include: { tenant: true, user: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (memberships.length === 0) return null;
 
-  const cookieTenantId = await readActiveTenantCookie();
-  const active = memberships.find((m) => m.tenantId === cookieTenantId) ?? memberships[0];
+    const cookieTenantId = await readActiveTenantCookie();
+    const active = memberships.find((m) => m.tenantId === cookieTenantId) ?? memberships[0];
 
-  return {
-    userId: session.userId,
-    email: active.user.email,
-    name: active.user.name,
-    tenantId: active.tenantId,
-    tenantName: active.tenant.name,
-    role: active.role,
-    db: getTenantDb(active.tenantId),
-  };
+    return {
+      userId: session.userId,
+      email: active.user.email,
+      name: active.user.name,
+      tenantId: active.tenantId,
+      tenantName: active.tenant.name,
+      role: active.role,
+      db: getTenantDb(active.tenantId),
+    };
+  } catch (err) {
+    console.error("getAuthContext failed", err);
+    return null;
+  }
 });
 
 export async function requireAuth(): Promise<AuthContext> {
