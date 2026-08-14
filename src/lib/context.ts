@@ -1,8 +1,9 @@
 import "server-only";
 import { cache } from "react";
+import { redirect } from "next/navigation";
 import type { TenantRole } from "@prisma/client";
 import { prisma, getTenantDb, TenantDb } from "./prisma";
-import { ForbiddenError, UnauthorizedError } from "./errors";
+import { ForbiddenError } from "./errors";
 import { readActiveTenantCookie, readSession } from "./session";
 
 export interface AuthContext {
@@ -42,7 +43,9 @@ export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
 
 export async function requireAuth(): Promise<AuthContext> {
   const ctx = await getAuthContext();
-  if (!ctx) throw new UnauthorizedError();
+  // Redirect instead of throw — thrown errors become opaque production digests
+  // when the page RSC runs in parallel with the layout.
+  if (!ctx) redirect("/api/auth/clear");
   return ctx;
 }
 
