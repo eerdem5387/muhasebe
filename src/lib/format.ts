@@ -56,6 +56,7 @@ export const ROLE_TR: Record<string, string> = {
   ACCOUNTANT: "Muhasebe",
   PRINCIPAL: "Müdür",
   FOUNDER: "Kurucu",
+  SUPER_ADMIN: "Süper Admin",
 };
 
 export const STATUS_TR: Record<string, string> = {

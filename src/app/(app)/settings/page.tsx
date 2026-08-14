@@ -1,6 +1,6 @@
 import { requireAuth, canManageSettings } from "@/lib/context";
 import { createCardBankAction, createCategoryAction, deleteCardBankAction, deleteCategoryAction } from "@/app/actions/settings";
-import { createUserAction, deleteUserAction } from "@/app/actions/auth";
+import { createSchoolWithAdminAction, createUserAction, deleteUserAction } from "@/app/actions/auth";
 import { PageHeader } from "@/components/page-header";
 import { ActionForm, MiniForm } from "@/components/action-form";
 import { ROLE_TR } from "@/lib/format";
@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
   const ctx = await requireAuth();
-  if (!canManageSettings(ctx.role)) {
+  if (!canManageSettings(ctx.role, ctx.isSuperAdmin)) {
     return (
       <div className="card p-8 text-sm text-slate-600">
         Ayarlar yalnızca yöneticiler içindir.
@@ -30,6 +30,35 @@ export default async function SettingsPage() {
     <div>
       <PageHeader title="Ayarlar" description="Kalemler, kredi kartı anlaşmaları ve kullanıcılar." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {ctx.isSuperAdmin && (
+          <div className="card border-amber-200 bg-amber-50/40 p-5 lg:col-span-2">
+            <h2 className="mb-1 font-semibold text-slate-900">Yeni okul / şirket + yönetici</h2>
+            <p className="mb-4 text-sm text-slate-600">
+              Süper admin olarak yeni bir okul oluşturur ve o okul için yönetici (şirket kullanıcısı) hesabı açar.
+            </p>
+            <ActionForm action={createSchoolWithAdminAction} submitLabel="Okul ve yönetici oluştur">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="label" htmlFor="schoolName">Okul / şirket adı</label>
+                  <input id="schoolName" name="schoolName" className="input" required placeholder="Örn: Atatürk İlkokulu" />
+                </div>
+                <div>
+                  <label className="label" htmlFor="adminName">Yönetici ad soyad</label>
+                  <input id="adminName" name="name" className="input" required />
+                </div>
+                <div>
+                  <label className="label" htmlFor="adminEmail">Yönetici e-posta</label>
+                  <input id="adminEmail" name="email" type="email" className="input" required />
+                </div>
+                <div>
+                  <label className="label" htmlFor="adminPassword">Yönetici şifre</label>
+                  <input id="adminPassword" name="password" type="password" className="input" required minLength={6} />
+                </div>
+              </div>
+            </ActionForm>
+          </div>
+        )}
+
         <div className="card p-5">
           <h2 className="mb-4 font-semibold">Gelir / gider kalemleri</h2>
           <ul className="mb-4 divide-y divide-slate-100 text-sm">
@@ -84,7 +113,8 @@ export default async function SettingsPage() {
         </div>
 
         <div className="card p-5 lg:col-span-2">
-          <h2 className="mb-4 font-semibold">Kullanıcılar</h2>
+          <h2 className="mb-1 font-semibold">Bu okulun kullanıcıları</h2>
+          <p className="mb-4 text-sm text-slate-500">{ctx.tenantName} için muhasebe / müdür / kurucu hesapları.</p>
           <table className="mb-4 w-full">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
@@ -97,7 +127,12 @@ export default async function SettingsPage() {
             <tbody className="divide-y divide-slate-100">
               {memberships.map((m) => (
                 <tr key={m.id}>
-                  <td className="td">{m.user.name}</td>
+                  <td className="td">
+                    {m.user.name}
+                    {m.user.isSuperAdmin ? (
+                      <span className="ml-2 text-xs text-amber-700">(süper admin)</span>
+                    ) : null}
+                  </td>
                   <td className="td">{m.user.email}</td>
                   <td className="td">{ROLE_TR[m.role]}</td>
                   <td className="td text-right">
@@ -115,16 +150,16 @@ export default async function SettingsPage() {
           <ActionForm action={createUserAction} submitLabel="Kullanıcı ekle">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="label" htmlFor="name">Ad soyad</label>
-                <input id="name" name="name" className="input" required />
+                <label className="label" htmlFor="userName">Ad soyad</label>
+                <input id="userName" name="name" className="input" required />
               </div>
               <div>
-                <label className="label" htmlFor="email">E-posta</label>
-                <input id="email" name="email" type="email" className="input" required />
+                <label className="label" htmlFor="userEmail">E-posta</label>
+                <input id="userEmail" name="email" type="email" className="input" required />
               </div>
               <div>
-                <label className="label" htmlFor="password">Şifre</label>
-                <input id="password" name="password" type="password" className="input" required minLength={6} />
+                <label className="label" htmlFor="userPassword">Şifre</label>
+                <input id="userPassword" name="password" type="password" className="input" required minLength={6} />
               </div>
               <div>
                 <label className="label" htmlFor="role">Rol</label>

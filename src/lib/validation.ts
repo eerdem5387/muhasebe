@@ -14,6 +14,13 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Şifre gerekli."),
 });
 
+export const schoolAdminSchema = z.object({
+  schoolName: z.string().trim().min(2, "Okul / şirket adı gerekli."),
+  name: z.string().trim().min(2, "Yönetici adı gerekli."),
+  email: z.string().trim().email("Geçerli bir e-posta girin."),
+  password: z.string().min(6, "Şifre en az 6 karakter olmalı."),
+});
+
 export const userSchema = z.object({
   name: z.string().trim().min(2, "Ad soyad gerekli."),
   email: z.string().trim().email("Geçerli bir e-posta girin."),

@@ -6,7 +6,7 @@ import { CHANNEL_TR, fmtDate, fmtMoney, todayISO } from "@/lib/format";
 
 export default async function CollectionsPage() {
   const ctx = await requireAuth();
-  const canWrite = canManageOperations(ctx.role);
+  const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const [collections, enrollments] = await Promise.all([
     ctx.db.collection.findMany({
       orderBy: { collectedAt: "desc" },

@@ -111,11 +111,11 @@ export async function approveRequestAction(formData: FormData): Promise<void> {
   let founderApprovedBy = req.founderApprovedBy;
 
   if (as === "principal") {
-    if (!canApproveAsPrincipal(ctx.role)) throw new ForbiddenError();
+    if (!canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin)) throw new ForbiddenError();
     principalApprovedAt = now;
     principalApprovedBy = ctx.userId;
   } else if (as === "founder") {
-    if (!canApproveAsFounder(ctx.role)) throw new ForbiddenError();
+    if (!canApproveAsFounder(ctx.role, ctx.isSuperAdmin)) throw new ForbiddenError();
     founderApprovedAt = now;
     founderApprovedBy = ctx.userId;
   } else {
@@ -139,7 +139,7 @@ export async function approveRequestAction(formData: FormData): Promise<void> {
 export async function rejectRequestAction(formData: FormData): Promise<void> {
   const ctx = await requireAuth();
   const id = String(formData.get("id") ?? "");
-  if (!canApproveAsPrincipal(ctx.role) && !canApproveAsFounder(ctx.role)) {
+  if (!canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin) && !canApproveAsFounder(ctx.role, ctx.isSuperAdmin)) {
     throw new ForbiddenError();
   }
   await ctx.db.expenseRequest.updateMany({

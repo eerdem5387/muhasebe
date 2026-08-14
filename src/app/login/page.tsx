@@ -29,7 +29,7 @@ export default function LoginPage() {
           <SubmitButton className="w-full">Giriş yap</SubmitButton>
         </form>
         <p className="mt-4 text-center text-xs text-slate-400">
-          Demo: demo@muhasebe.test / 123456
+          Süper admin: superadmin@okul.test / 123456
         </p>
       </div>
     </div>

@@ -9,9 +9,9 @@ const color = { PENDING: "amber", APPROVED: "green", REJECTED: "red" } as const;
 
 export default async function RequestsPage() {
   const ctx = await requireAuth();
-  const canWrite = canManageOperations(ctx.role);
-  const asPrincipal = canApproveAsPrincipal(ctx.role);
-  const asFounder = canApproveAsFounder(ctx.role);
+  const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
+  const asPrincipal = canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin);
+  const asFounder = canApproveAsFounder(ctx.role, ctx.isSuperAdmin);
   const requests = await ctx.db.expenseRequest.findMany({ orderBy: { createdAt: "desc" } });
 
   return (

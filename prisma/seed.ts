@@ -5,13 +5,16 @@ import { buildIncomeSchedule, scheduleStatus } from "@/server/income-schedule";
 const prisma = new PrismaClient();
 const PASSWORD = "123456";
 
-async function upsertUser(email: string, name: string) {
+async function upsertUser(email: string, name: string, isSuperAdmin = false) {
   const existing = await prisma.user.findUnique({ where: { email } });
   const passwordHash = await hashPassword(PASSWORD);
   if (existing) {
-    return prisma.user.update({ where: { id: existing.id }, data: { name, passwordHash } });
+    return prisma.user.update({
+      where: { id: existing.id },
+      data: { name, passwordHash, isSuperAdmin },
+    });
   }
-  return prisma.user.create({ data: { email, name, passwordHash } });
+  return prisma.user.create({ data: { email, name, passwordHash, isSuperAdmin } });
 }
 
 async function main() {
@@ -20,14 +23,15 @@ async function main() {
     (await prisma.tenant.create({ data: { name: "Demo Okul" } }));
 
   const users = [
-    { email: "demo@muhasebe.test", name: "Okul Yöneticisi", role: "ADMIN" as const },
-    { email: "muhasebe@okul.test", name: "Ayşe Muhasebe", role: "ACCOUNTANT" as const },
-    { email: "mudur@okul.test", name: "Mehmet Müdür", role: "PRINCIPAL" as const },
-    { email: "kurucu@okul.test", name: "Ali Kurucu", role: "FOUNDER" as const },
+    { email: "superadmin@okul.test", name: "Süper Admin", role: "ADMIN" as const, isSuperAdmin: true },
+    { email: "demo@muhasebe.test", name: "Okul Yöneticisi", role: "ADMIN" as const, isSuperAdmin: false },
+    { email: "muhasebe@okul.test", name: "Ayşe Muhasebe", role: "ACCOUNTANT" as const, isSuperAdmin: false },
+    { email: "mudur@okul.test", name: "Mehmet Müdür", role: "PRINCIPAL" as const, isSuperAdmin: false },
+    { email: "kurucu@okul.test", name: "Ali Kurucu", role: "FOUNDER" as const, isSuperAdmin: false },
   ];
 
   for (const u of users) {
-    const user = await upsertUser(u.email, u.name);
+    const user = await upsertUser(u.email, u.name, u.isSuperAdmin);
     await prisma.tenantUser.upsert({
       where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
       update: { role: u.role },
@@ -100,6 +104,7 @@ async function main() {
   }
 
   console.log("Seed tamamlandı. Şifre (tümü): 123456");
+  console.log("  superadmin@okul.test (Süper Admin)");
   console.log("  demo@muhasebe.test  (Yönetici)");
   console.log("  muhasebe@okul.test  (Muhasebe)");
   console.log("  mudur@okul.test     (Müdür)");

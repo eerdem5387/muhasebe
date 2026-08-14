@@ -7,7 +7,7 @@ import { EnrollmentForm } from "./enrollment-form";
 
 export default async function StudentsPage() {
   const ctx = await requireAuth();
-  const canWrite = canManageOperations(ctx.role);
+  const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const [students, banks] = await Promise.all([
     ctx.db.student.findMany({
       orderBy: { fullName: "asc" },

@@ -13,7 +13,9 @@ export interface AuthContext {
   tenantId: string;
   tenantName: string;
   role: TenantRole;
+  isSuperAdmin: boolean;
   db: TenantDb;
+  memberships: { tenantId: string; tenantName: string; role: TenantRole }[];
 }
 
 export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
@@ -21,9 +23,12 @@ export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
     const session = await readSession();
     if (!session) return null;
 
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!user) return null;
+
     const memberships = await prisma.tenantUser.findMany({
       where: { userId: session.userId },
-      include: { tenant: true, user: true },
+      include: { tenant: true },
       orderBy: { createdAt: "asc" },
     });
     if (memberships.length === 0) return null;
@@ -33,12 +38,18 @@ export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
 
     return {
       userId: session.userId,
-      email: active.user.email,
-      name: active.user.name,
+      email: user.email,
+      name: user.name,
       tenantId: active.tenantId,
       tenantName: active.tenant.name,
       role: active.role,
+      isSuperAdmin: user.isSuperAdmin,
       db: getTenantDb(active.tenantId),
+      memberships: memberships.map((m) => ({
+        tenantId: m.tenantId,
+        tenantName: m.tenant.name,
+        role: m.role,
+      })),
     };
   } catch (err) {
     console.error("getAuthContext failed", err);
@@ -48,31 +59,29 @@ export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
 
 export async function requireAuth(): Promise<AuthContext> {
   const ctx = await getAuthContext();
-  // Redirect instead of throw — thrown errors become opaque production digests
-  // when the page RSC runs in parallel with the layout.
   if (!ctx) redirect("/api/auth/clear");
   return ctx;
 }
 
-export function canManageOperations(role: TenantRole): boolean {
-  return role === "ADMIN" || role === "ACCOUNTANT";
+export function canManageOperations(role: TenantRole, isSuperAdmin = false): boolean {
+  return isSuperAdmin || role === "ADMIN" || role === "ACCOUNTANT";
 }
 
-export function canApproveAsPrincipal(role: TenantRole): boolean {
-  return role === "ADMIN" || role === "PRINCIPAL";
+export function canApproveAsPrincipal(role: TenantRole, isSuperAdmin = false): boolean {
+  return isSuperAdmin || role === "ADMIN" || role === "PRINCIPAL";
 }
 
-export function canApproveAsFounder(role: TenantRole): boolean {
-  return role === "ADMIN" || role === "FOUNDER";
+export function canApproveAsFounder(role: TenantRole, isSuperAdmin = false): boolean {
+  return isSuperAdmin || role === "ADMIN" || role === "FOUNDER";
 }
 
-export function canManageSettings(role: TenantRole): boolean {
-  return role === "ADMIN";
+export function canManageSettings(role: TenantRole, isSuperAdmin = false): boolean {
+  return isSuperAdmin || role === "ADMIN";
 }
 
 export async function requireOperations(): Promise<AuthContext> {
   const ctx = await requireAuth();
-  if (!canManageOperations(ctx.role)) {
+  if (!canManageOperations(ctx.role, ctx.isSuperAdmin)) {
     throw new ForbiddenError("Bu işlem için muhasebe yetkisi gerekir.");
   }
   return ctx;
@@ -80,8 +89,16 @@ export async function requireOperations(): Promise<AuthContext> {
 
 export async function requireSettings(): Promise<AuthContext> {
   const ctx = await requireAuth();
-  if (!canManageSettings(ctx.role)) {
+  if (!canManageSettings(ctx.role, ctx.isSuperAdmin)) {
     throw new ForbiddenError("Bu işlem için yönetici yetkisi gerekir.");
+  }
+  return ctx;
+}
+
+export async function requireSuperAdmin(): Promise<AuthContext> {
+  const ctx = await requireAuth();
+  if (!ctx.isSuperAdmin) {
+    throw new ForbiddenError("Bu işlem yalnızca süper admin içindir.");
   }
   return ctx;
 }

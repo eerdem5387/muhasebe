@@ -6,7 +6,7 @@ import { CHANNEL_TR, fmtDate, fmtMoney, todayISO } from "@/lib/format";
 
 export default async function ExpensesPage() {
   const ctx = await requireAuth();
-  const canWrite = canManageOperations(ctx.role);
+  const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const [expenses, categories, approvedRequests] = await Promise.all([
     ctx.db.expense.findMany({
       orderBy: { spentAt: "desc" },
