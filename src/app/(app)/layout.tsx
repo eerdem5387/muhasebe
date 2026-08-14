@@ -1,17 +1,12 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/context";
-import { clearSession } from "@/lib/session";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getAuthContext();
-  if (!ctx) {
-    // Stale JWT (valid signature, no school membership) must be cleared or
-    // the browser loops: proxy → / → layout → /login → …
-    await clearSession();
-    redirect("/login");
-  }
+  // Must not call cookies().delete here — Next forbids cookie writes during RSC render.
+  if (!ctx) redirect("/api/auth/clear");
 
   return (
     <div className="flex min-h-screen">
