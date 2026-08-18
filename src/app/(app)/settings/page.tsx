@@ -7,6 +7,8 @@ import { ActionForm, MiniForm } from "@/components/action-form";
 import { ROLE_TR, fmtDateTime } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
+export const maxDuration = 60;
+
 export default async function SettingsPage() {
   const ctx = await requireAuth();
   if (!canManageSettings(ctx.role, ctx.isSuperAdmin)) {

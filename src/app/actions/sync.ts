@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSettings } from "@/lib/context";
+import { requireOperations } from "@/lib/context";
 import { toErrorMessage } from "@/lib/errors";
 import { runSchoolSync } from "@/server/school-sync";
 import type { ActionState } from "./types";
@@ -11,7 +11,7 @@ export async function runSchoolSyncAction(
   _formData: FormData,
 ): Promise<ActionState> {
   try {
-    const ctx = await requireSettings();
+    const ctx = await requireOperations();
     const result = await runSchoolSync(ctx.tenantId);
     revalidatePath("/students");
     revalidatePath("/income");

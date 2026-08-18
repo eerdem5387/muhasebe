@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { requireAuth, canManageOperations } from "@/lib/context";
 import { createStudentAction } from "@/app/actions/students";
+import { runSchoolSyncAction } from "@/app/actions/sync";
 import { PageHeader } from "@/components/page-header";
 import { ActionForm } from "@/components/action-form";
 import { FormModal } from "@/components/form-modal";
 import { Badge } from "@/components/ui";
 import { CHANNEL_TR, fmtMoney } from "@/lib/format";
+import { prisma } from "@/lib/prisma";
 import { EnrollmentForm } from "./enrollment-form";
+
+export const maxDuration = 60;
 
 function paymentStatus(fee: number, collected: number): { label: string; color: "green" | "amber" | "blue" | "gray" } {
   if (fee <= 0) return { label: "Kayıt yok", color: "gray" };
@@ -18,7 +22,7 @@ function paymentStatus(fee: number, collected: number): { label: string; color: 
 export default async function StudentsPage() {
   const ctx = await requireAuth();
   const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
-  const [students, banks] = await Promise.all([
+  const [students, banks, lastSync] = await Promise.all([
     ctx.db.student.findMany({
       orderBy: { fullName: "asc" },
       include: {
@@ -30,7 +34,12 @@ export default async function StudentsPage() {
       },
     }),
     ctx.db.cardBankSetting.findMany({ where: { active: true }, orderBy: { bankName: "asc" } }),
+    prisma.schoolSyncRun.findFirst({
+      where: { tenantId: ctx.tenantId },
+      orderBy: { startedAt: "desc" },
+    }),
   ]);
+  const importedCount = students.filter((s) => s.externalId).length;
 
   return (
     <div>
@@ -40,6 +49,9 @@ export default async function StudentsPage() {
         actions={
           canWrite ? (
             <>
+              <ActionForm action={runSchoolSyncAction} submitLabel="Okuldan çek" className="!space-y-2">
+                <span className="sr-only">Okul yönetim sisteminden öğrencileri çek</span>
+              </ActionForm>
               <FormModal buttonLabel="Öğrenci ekle" title="Yeni öğrenci">
                 <ActionForm action={createStudentAction} submitLabel="Öğrenci ekle">
                   <div>
@@ -66,6 +78,15 @@ export default async function StudentsPage() {
           ) : undefined
         }
       />
+      {importedCount === 0 && canWrite && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Listede görünen kayıt demo öğrencisidir. Okul yönetim sistemindeki öğrenciler otomatik gelmez;
+          sağ üstteki <strong>Okuldan çek</strong> butonuna basın. (Günlük otomatik çekim saat 12:00’de çalışır.)
+          {lastSync && !lastSync.ok ? (
+            <span className="mt-1 block text-red-700">{lastSync.error}</span>
+          ) : null}
+        </div>
+      )}
       <div className="overflow-x-auto card">
         <table className="w-full">
           <thead className="border-b border-slate-200 bg-slate-50">
