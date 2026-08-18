@@ -43,8 +43,22 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
                   {en.cardBank ? ` · ${en.cardBank.bankName} (${en.installmentCount} taksit, ${en.cardBank.blockDays} gün bloke)` : ""}
                   {" · "}{fmtDate(en.enrolledAt)}
                 </p>
+                {en.sourcePaymentPlan ? (
+                  <p className="mt-1 text-xs text-slate-400">Sözleşme planı: {en.sourcePaymentPlan}</p>
+                ) : null}
               </div>
-              <p className="text-lg font-semibold">{fmtMoney(Number(en.annualFee))}</p>
+              <div className="text-right">
+                <p className="text-lg font-semibold">{fmtMoney(Number(en.annualFee))}</p>
+                {(() => {
+                  const collected = en.collections.reduce((sum, c) => sum + Number(c.amount), 0);
+                  const remaining = Math.max(0, Number(en.annualFee) - collected);
+                  return (
+                    <p className="text-sm text-slate-500">
+                      Alınan {fmtMoney(collected)} · Kalan {fmtMoney(remaining)}
+                    </p>
+                  );
+                })()}
+              </div>
             </div>
             <table className="w-full">
               <thead className="border-b border-slate-200 bg-slate-50">

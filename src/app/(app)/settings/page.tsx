@@ -1,9 +1,10 @@
 import { requireAuth, canManageSettings } from "@/lib/context";
 import { createCardBankAction, createCategoryAction, deleteCardBankAction, deleteCategoryAction } from "@/app/actions/settings";
 import { createSchoolWithAdminAction, createUserAction, deleteUserAction } from "@/app/actions/auth";
+import { runSchoolSyncAction } from "@/app/actions/sync";
 import { PageHeader } from "@/components/page-header";
 import { ActionForm, MiniForm } from "@/components/action-form";
-import { ROLE_TR } from "@/lib/format";
+import { ROLE_TR, fmtDateTime } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
@@ -16,7 +17,7 @@ export default async function SettingsPage() {
     );
   }
 
-  const [categories, banks, memberships] = await Promise.all([
+  const [categories, banks, memberships, lastSync] = await Promise.all([
     ctx.db.ledgerCategory.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] }),
     ctx.db.cardBankSetting.findMany({ orderBy: { bankName: "asc" } }),
     prisma.tenantUser.findMany({
@@ -24,12 +25,38 @@ export default async function SettingsPage() {
       include: { user: true },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.schoolSyncRun.findFirst({
+      where: { tenantId: ctx.tenantId },
+      orderBy: { startedAt: "desc" },
+    }),
   ]);
 
   return (
     <div>
       <PageHeader title="Ayarlar" description="Kalemler, kredi kartı anlaşmaları ve kullanıcılar." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="card p-5 lg:col-span-2">
+          <h2 className="mb-1 font-semibold text-slate-900">Okul kaydından öğrenci çek</h2>
+          <p className="mb-4 text-sm text-slate-600">
+            Diğer projeden yalnızca öğrenci adı, sınıf, veli telefonu ve sözleşme ücreti alınır.
+            Tahsilat ve ödeme yöntemi bu programda tutulur; kaynak veritabanına hiçbir şey yazılmaz.
+            Otomatik çekim her gün saat 12:00’de çalışır.
+          </p>
+          {lastSync ? (
+            <p className="mb-4 text-sm text-slate-500">
+              Son çekim: {fmtDateTime(lastSync.finishedAt ?? lastSync.startedAt)}
+              {" · "}
+              {lastSync.ok
+                ? `${lastSync.studentsUpserted} öğrenci, ${lastSync.enrollmentsUpserted} kayıt`
+                : lastSync.error ?? "hata"}
+            </p>
+          ) : (
+            <p className="mb-4 text-sm text-slate-500">Henüz çekim yapılmadı.</p>
+          )}
+          <ActionForm action={runSchoolSyncAction} submitLabel="Şimdi çek">
+            <p className="text-xs text-slate-400">Bu işlem birkaç saniye sürebilir.</p>
+          </ActionForm>
+        </div>
         {ctx.isSuperAdmin && (
           <div className="card border-amber-200 bg-amber-50/40 p-5 lg:col-span-2">
             <h2 className="mb-1 font-semibold text-slate-900">Yeni okul / şirket + yönetici</h2>

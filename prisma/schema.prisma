@@ -70,6 +70,7 @@ model Tenant {
   expenses        Expense[]
   expenseRequests ExpenseRequest[]
   attachments     Attachment[]
+  schoolSyncRuns  SchoolSyncRun[]
 }
 
 model User {
@@ -104,11 +105,15 @@ model Student {
   classroom   String?
   parentPhone String?
   notes       String?
+  /// Source school-app student id. Null for students created in muhasebe.
+  externalId  String?
+  syncedAt    DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
 
+  @@unique([tenantId, externalId])
   @@index([tenantId])
 }
 
@@ -127,25 +132,32 @@ model CardBankSetting {
 }
 
 model Enrollment {
-  id               String               @id @default(cuid())
-  tenantId         String
-  studentId        String
-  academicYear     String
-  annualFee        Decimal              @db.Decimal(18, 2)
-  paymentChannel   PaymentChannel
-  installmentCount Int                  @default(1)
-  cardBankId       String?
-  enrolledAt       DateTime             @default(now())
-  status           EnrollmentStatus     @default(ACTIVE)
-  notes            String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  student          Student              @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  cardBank         CardBankSetting?     @relation(fields: [cardBankId], references: [id], onDelete: SetNull)
-  scheduleLines    IncomeScheduleLine[]
-  collections      Collection[]
+  id                 String               @id @default(cuid())
+  tenantId           String
+  studentId          String
+  academicYear       String
+  annualFee          Decimal              @db.Decimal(18, 2)
+  announcedFee       Decimal?             @db.Decimal(18, 2)
+  paymentChannel     PaymentChannel
+  installmentCount   Int                  @default(1)
+  cardBankId         String?
+  enrolledAt         DateTime             @default(now())
+  status             EnrollmentStatus     @default(ACTIVE)
+  notes              String?
+  /// Source new_registrations / renewals id.
+  externalId         String?
+  sourceKind         String?
+  sourcePaymentPlan  String?
+  contractNo         String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student            Student              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  cardBank           CardBankSetting?     @relation(fields: [cardBankId], references: [id], onDelete: SetNull)
+  scheduleLines      IncomeScheduleLine[]
+  collections        Collection[]
 
+  @@unique([tenantId, externalId])
   @@index([tenantId])
   @@index([studentId])
 }
@@ -245,6 +257,20 @@ model Expense {
 
   @@index([tenantId])
   @@index([categoryId])
+}
+
+model SchoolSyncRun {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  startedAt            DateTime  @default(now())
+  finishedAt           DateTime?
+  ok                   Boolean   @default(false)
+  studentsUpserted     Int       @default(0)
+  enrollmentsUpserted  Int       @default(0)
+  error                String?
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, startedAt])
 }
 
 model Attachment {

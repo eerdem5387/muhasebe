@@ -27,6 +27,19 @@ export function fmtDate(value: string | Date | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "-" : dateFmt.format(d);
 }
 
+export function fmtDateTime(value: string | Date | null | undefined): string {
+  if (!value) return "-";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "-";
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
 export function fmtMonth(yearMonth: string): string {
   const [y, m] = yearMonth.split("-").map(Number);
   if (!y || !m) return yearMonth;
