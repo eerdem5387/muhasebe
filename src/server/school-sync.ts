@@ -1,4 +1,4 @@
-import { PaymentChannel, Prisma } from "@prisma/client";
+import { PaymentChannel, Prisma, type RegistrationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { buildIncomeSchedule, scheduleStatus } from "@/server/income-schedule";
 import {
@@ -163,6 +163,12 @@ export async function runSchoolSync(tenantId?: string): Promise<SchoolSyncResult
     const fallbackYear = normalizeAcademicYear(activeYearName, `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`);
     const chosen = latestContracts(contracts, fallbackYear);
     const now = new Date();
+    const registrationBySourceId = new Map<string, RegistrationStatus>();
+    for (const contract of chosen) {
+      const year = normalizeAcademicYear(contract.academicYear, fallbackYear);
+      if (year !== fallbackYear) continue;
+      registrationBySourceId.set(contract.studentId, contract.kind === "NEW_REGISTRATION" ? "NEW" : "RENEWED");
+    }
 
     const existingStudents = await prisma.student.findMany({
       where: { tenantId: targetTenantId, externalId: { not: null } },
@@ -179,6 +185,7 @@ export async function runSchoolSync(tenantId?: string): Promise<SchoolSyncResult
           fullName: `${row.firstName} ${row.lastName}`.replace(/\s+/g, " ").trim(),
           classroom: row.grade?.trim() || null,
           parentPhone: pickPhone(row.motherPhone, row.fatherPhone),
+          registrationStatus: registrationBySourceId.get(row.id) ?? "NOT_RENEWED",
           syncedAt: now,
         })),
       });
@@ -198,6 +205,7 @@ export async function runSchoolSync(tenantId?: string): Promise<SchoolSyncResult
           fullName: `${row.firstName} ${row.lastName}`.replace(/\s+/g, " ").trim(),
           classroom: row.grade?.trim() || null,
           parentPhone: pickPhone(row.motherPhone, row.fatherPhone),
+          registrationStatus: registrationBySourceId.get(row.id) ?? "NOT_RENEWED",
           syncedAt: now,
         },
       });
@@ -291,29 +299,22 @@ export async function runSchoolSync(tenantId?: string): Promise<SchoolSyncResult
       }
 
       const hasCollections = existing.collections.length > 0;
-      await prisma.enrollment.update({
-        where: { id: existing.id },
-        data: hasCollections
-          ? { ...meta, externalId: existing.externalId ?? contract.id }
-          : {
-              ...meta,
-              externalId: existing.externalId ?? contract.id,
-              annualFee,
-              paymentChannel: payment.channel,
-              installmentCount: payment.installmentCount,
-              cardBankId,
-            },
-      });
-
       if (!hasCollections) {
-        const bank = banks.find((b) => b.id === cardBankId) ?? existing.cardBank;
-        await rebuildSchedule({
-          tenantId: targetTenantId,
-          enrollmentId: existing.id,
-          annualFee,
-          installmentCount: payment.installmentCount,
-          enrolledAt,
-          blockDays: payment.channel === "CREDIT_CARD" ? (bank?.blockDays ?? 0) : 0,
+        await prisma.enrollment.update({
+          where: { id: existing.id },
+          data: {
+            ...meta,
+            externalId: existing.externalId ?? contract.id,
+            annualFee,
+            paymentChannel: payment.channel,
+            installmentCount: payment.installmentCount,
+            cardBankId,
+          },
+        });
+      } else {
+        await prisma.enrollment.update({
+          where: { id: existing.id },
+          data: { ...meta, externalId: existing.externalId ?? contract.id },
         });
       }
       enrollmentsUpserted += 1;

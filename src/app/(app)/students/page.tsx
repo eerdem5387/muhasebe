@@ -6,18 +6,15 @@ import { PageHeader } from "@/components/page-header";
 import { ActionForm } from "@/components/action-form";
 import { FormModal } from "@/components/form-modal";
 import { Badge } from "@/components/ui";
-import { CHANNEL_TR, fmtMoney } from "@/lib/format";
+import { CHANNEL_TR, PAYMENT_PROGRESS_TR, REGISTRATION_TR, fmtMoney } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+import { resolvePaymentProgress } from "@/server/payment-progress";
 import { EnrollmentForm } from "./enrollment-form";
 
 export const maxDuration = 60;
 
-function paymentStatus(fee: number, collected: number): { label: string; color: "green" | "amber" | "blue" | "gray" } {
-  if (fee <= 0) return { label: "Kayıt yok", color: "gray" };
-  if (collected <= 0) return { label: "Bekliyor", color: "amber" };
-  if (collected + 0.009 >= fee) return { label: "Ödendi", color: "green" };
-  return { label: "Kısmi", color: "blue" };
-}
+const registrationColor = { NEW: "blue", RENEWED: "green", NOT_RENEWED: "amber" } as const;
+const progressColor = { NOT_STARTED: "gray", IN_PROGRESS: "blue", COMPLETED: "green" } as const;
 
 export default async function StudentsPage() {
   const ctx = await requireAuth();
@@ -45,7 +42,7 @@ export default async function StudentsPage() {
     <div>
       <PageHeader
         title="Öğrenciler / Kayıtlar"
-        description="Kayıt ücreti okul sisteminden gelir. Ödemenin alınıp alınmadığı burada takip edilir."
+        description="Kayıt durumu okul sisteminden gelir. Ödeme takibi bu ekrandan ve öğrenci detayından yapılır."
         actions={
           canWrite ? (
             <>
@@ -80,8 +77,7 @@ export default async function StudentsPage() {
       />
       {importedCount === 0 && canWrite && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Listede görünen kayıt demo öğrencisidir. Okul yönetim sistemindeki öğrenciler otomatik gelmez;
-          sağ üstteki <strong>Okuldan çek</strong> butonuna basın. (Günlük otomatik çekim saat 12:00’de çalışır.)
+          Listede henüz okul kaydı yok. Sağ üstteki <strong>Okuldan çek</strong> ile öğrencileri alın.
           {lastSync && !lastSync.ok ? (
             <span className="mt-1 block text-red-700">{lastSync.error}</span>
           ) : null}
@@ -98,6 +94,7 @@ export default async function StudentsPage() {
               <th className="th text-right">Alınan</th>
               <th className="th text-right">Kalan</th>
               <th className="th">Kanal</th>
+              <th className="th">Ödeme Durumu</th>
               <th className="th">Durum</th>
               <th className="th"></th>
             </tr>
@@ -108,7 +105,14 @@ export default async function StudentsPage() {
               const fee = en ? Number(en.annualFee) : 0;
               const collected = en ? en.collections.reduce((sum, c) => sum + Number(c.amount), 0) : 0;
               const remaining = Math.max(0, fee - collected);
-              const status = paymentStatus(fee, collected);
+              const progress = en
+                ? resolvePaymentProgress({
+                    fee,
+                    collected,
+                    stored: en.paymentProgress,
+                    manual: en.paymentProgressManual,
+                  })
+                : "NOT_STARTED";
               return (
                 <tr key={s.id}>
                   <td className="td font-medium">{s.fullName}</td>
@@ -120,10 +124,15 @@ export default async function StudentsPage() {
                   <td className="td">
                     {en ? CHANNEL_TR[en.paymentChannel] : "-"}
                     {en?.sourcePaymentPlan ? (
-                      <span className="block text-xs text-slate-400">{en.sourcePaymentPlan}</span>
+                      <span className="block max-w-[14rem] truncate text-xs text-slate-400">{en.sourcePaymentPlan}</span>
                     ) : null}
                   </td>
-                  <td className="td"><Badge color={status.color}>{status.label}</Badge></td>
+                  <td className="td">
+                    <Badge color={progressColor[progress]}>{PAYMENT_PROGRESS_TR[progress]}</Badge>
+                  </td>
+                  <td className="td">
+                    <Badge color={registrationColor[s.registrationStatus]}>{REGISTRATION_TR[s.registrationStatus]}</Badge>
+                  </td>
                   <td className="td text-right">
                     <Link href={`/students/${s.id}`} className="text-xs font-medium text-brand-600 hover:underline">Detay</Link>
                   </td>
@@ -131,7 +140,7 @@ export default async function StudentsPage() {
               );
             })}
             {students.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={9}>Henüz öğrenci yok. Ayarlar’dan okul kaydını çekin.</td></tr>
+              <tr><td className="td text-slate-400" colSpan={10}>Henüz öğrenci yok. Okuldan çek ile listeyi alın.</td></tr>
             )}
           </tbody>
         </table>

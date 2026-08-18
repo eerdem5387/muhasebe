@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAuth } from "@/lib/context";
+import { requireAuth, canManageOperations } from "@/lib/context";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui";
-import { CHANNEL_TR, STATUS_TR, fmtDate, fmtMoney, fmtMonth } from "@/lib/format";
+import { REGISTRATION_TR } from "@/lib/format";
+import { resolvePaymentProgress } from "@/server/payment-progress";
+import { StudentFinancePanel } from "./finance-panel";
 
-const statusColor = { BLOCKED: "amber", EXPECTED: "blue", REALIZED: "green" } as const;
+export const maxDuration = 60;
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const ctx = await requireAuth();
+  const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const student = await ctx.db.student.findFirst({
     where: { id },
     include: {
@@ -18,86 +20,66 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         include: {
           cardBank: true,
           scheduleLines: { orderBy: { installmentIndex: "asc" } },
-          collections: { include: { attachments: { select: { id: true, filename: true } } } },
+          collections: {
+            orderBy: { collectedAt: "desc" },
+            include: { attachments: { select: { id: true, filename: true } } },
+          },
         },
       },
     },
   });
   if (!student) notFound();
 
+  const enrollment = student.enrollments[0] ?? null;
+  const collected = enrollment ? enrollment.collections.reduce((sum, c) => sum + Number(c.amount), 0) : 0;
+  const progress = enrollment
+    ? resolvePaymentProgress({
+        fee: Number(enrollment.annualFee),
+        collected,
+        stored: enrollment.paymentProgress,
+        manual: enrollment.paymentProgressManual,
+      })
+    : null;
+
   return (
     <div>
       <PageHeader
         title={student.fullName}
-        description={[student.classroom, student.parentPhone].filter(Boolean).join(" · ") || "Öğrenci kaydı"}
+        description={[student.classroom, student.parentPhone, REGISTRATION_TR[student.registrationStatus]].filter(Boolean).join(" · ")}
         actions={<Link href="/students" className="btn-secondary">Listeye dön</Link>}
       />
-      <div className="space-y-6">
-        {student.enrollments.map((en) => (
-          <div key={en.id} className="card p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="font-semibold text-slate-800">{en.academicYear} kayıt ücreti</h2>
-                <p className="text-sm text-slate-500">
-                  {CHANNEL_TR[en.paymentChannel]}
-                  {en.cardBank ? ` · ${en.cardBank.bankName} (${en.installmentCount} taksit, ${en.cardBank.blockDays} gün bloke)` : ""}
-                  {" · "}{fmtDate(en.enrolledAt)}
-                </p>
-                {en.sourcePaymentPlan ? (
-                  <p className="mt-1 text-xs text-slate-400">Sözleşme planı: {en.sourcePaymentPlan}</p>
-                ) : null}
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-semibold">{fmtMoney(Number(en.annualFee))}</p>
-                {(() => {
-                  const collected = en.collections.reduce((sum, c) => sum + Number(c.amount), 0);
-                  const remaining = Math.max(0, Number(en.annualFee) - collected);
-                  return (
-                    <p className="text-sm text-slate-500">
-                      Alınan {fmtMoney(collected)} · Kalan {fmtMoney(remaining)}
-                    </p>
-                  );
-                })()}
-              </div>
-            </div>
-            <table className="w-full">
-              <thead className="border-b border-slate-200 bg-slate-50">
-                <tr>
-                  <th className="th">Taksit</th>
-                  <th className="th">Ay</th>
-                  <th className="th">Serbest kalma</th>
-                  <th className="th text-right">Tutar</th>
-                  <th className="th">Durum</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {en.scheduleLines.map((l) => (
-                  <tr key={l.id}>
-                    <td className="td">{l.installmentIndex}</td>
-                    <td className="td">{fmtMonth(l.yearMonth)}</td>
-                    <td className="td">{fmtDate(l.releaseDate)}</td>
-                    <td className="td text-right">{fmtMoney(Number(l.amount))}</td>
-                    <td className="td">
-                      <Badge color={statusColor[l.status]}>{STATUS_TR[l.status]}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="mt-4 text-sm text-slate-600">
-              Tahsilat: {en.collections.length === 0 ? "henüz belge yok" : en.collections.map((c) => (
-                <span key={c.id} className="mr-3">
-                  {fmtMoney(Number(c.amount))} ({fmtDate(c.collectedAt)})
-                  {c.attachments.map((a) => (
-                    <a key={a.id} href={`/api/attachments/${a.id}`} className="ml-1 text-brand-600 underline" target="_blank">{a.filename}</a>
-                  ))}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-        {student.enrollments.length === 0 && <p className="text-sm text-slate-500">Henüz yıllık kayıt yok.</p>}
-      </div>
+      <StudentFinancePanel
+        studentId={student.id}
+        registrationStatus={student.registrationStatus}
+        canWrite={canWrite}
+        enrollment={enrollment ? {
+          id: enrollment.id,
+          academicYear: enrollment.academicYear,
+          annualFee: Number(enrollment.annualFee),
+          announcedFee: enrollment.announcedFee ? Number(enrollment.announcedFee) : null,
+          paymentChannel: enrollment.paymentChannel,
+          sourcePaymentPlan: enrollment.sourcePaymentPlan,
+          contractNo: enrollment.contractNo,
+          paymentProgress: progress ?? enrollment.paymentProgress,
+          enrolledAt: enrollment.enrolledAt.toISOString(),
+          scheduleLines: enrollment.scheduleLines.map((l) => ({
+            id: l.id,
+            installmentIndex: l.installmentIndex,
+            amount: Number(l.amount),
+            releaseDate: l.releaseDate.toISOString(),
+            status: l.status,
+            plannedChannel: l.plannedChannel,
+          })),
+          collections: enrollment.collections.map((c) => ({
+            id: c.id,
+            amount: Number(c.amount),
+            collectedAt: c.collectedAt.toISOString(),
+            paymentChannel: c.paymentChannel,
+            notes: c.notes,
+            attachments: c.attachments,
+          })),
+        } : null}
+      />
     </div>
   );
 }

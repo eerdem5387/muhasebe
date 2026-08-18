@@ -42,7 +42,7 @@ export default async function SettingsPage() {
           <p className="mb-4 text-sm text-slate-600">
             Diğer projeden yalnızca öğrenci adı, sınıf, veli telefonu ve sözleşme ücreti alınır.
             Tahsilat ve ödeme yöntemi bu programda tutulur; kaynak veritabanına hiçbir şey yazılmaz.
-            Otomatik çekim her gün saat 12:00’de çalışır.
+            Listeyi güncellemek için <strong>Okuldan çek</strong> butonunu kullanın.
           </p>
           {lastSync ? (
             <p className="mb-4 text-sm text-slate-500">

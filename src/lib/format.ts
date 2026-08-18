@@ -82,3 +82,15 @@ export const STATUS_TR: Record<string, string> = {
   APPROVED: "Onaylandı",
   REJECTED: "Reddedildi",
 };
+
+export const REGISTRATION_TR: Record<string, string> = {
+  NEW: "Yeni kayıt",
+  RENEWED: "Kayıt yeniledi",
+  NOT_RENEWED: "Kayıt yenilemedi",
+};
+
+export const PAYMENT_PROGRESS_TR: Record<string, string> = {
+  NOT_STARTED: "Başlamamış",
+  IN_PROGRESS: "Devam eden",
+  COMPLETED: "Tamamlanan",
+};
