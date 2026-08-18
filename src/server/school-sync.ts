@@ -161,7 +161,10 @@ export async function runSchoolSync(tenantId?: string): Promise<SchoolSyncResult
       fetchSourceActiveYear(source),
     ]);
     const fallbackYear = normalizeAcademicYear(activeYearName, `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`);
-    const chosen = latestContracts(contracts, fallbackYear);
+    const allChosen = latestContracts(contracts, fallbackYear);
+    const chosen = allChosen.filter(
+      (c) => normalizeAcademicYear(c.academicYear, fallbackYear) === fallbackYear,
+    );
     const now = new Date();
     const registrationBySourceId = new Map<string, RegistrationStatus>();
     for (const contract of chosen) {
@@ -318,6 +321,20 @@ export async function runSchoolSync(tenantId?: string): Promise<SchoolSyncResult
         });
       }
       enrollmentsUpserted += 1;
+    }
+
+    const stale = await prisma.enrollment.findMany({
+      where: {
+        tenantId: targetTenantId,
+        externalId: { not: null },
+        NOT: { academicYear: fallbackYear },
+      },
+      select: { id: true },
+    });
+    if (stale.length > 0) {
+      const staleIds = stale.map((e) => e.id);
+      await prisma.collection.deleteMany({ where: { enrollmentId: { in: staleIds } } });
+      await prisma.enrollment.deleteMany({ where: { id: { in: staleIds } } });
     }
 
     await prisma.schoolSyncRun.update({

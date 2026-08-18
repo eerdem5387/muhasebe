@@ -42,3 +42,17 @@ body {
     @apply whitespace-nowrap px-4 py-3 text-sm text-slate-700;
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+  }
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+  .monthly-report {
+    box-shadow: none !important;
+    border-color: #0f172a !important;
+  }
+}

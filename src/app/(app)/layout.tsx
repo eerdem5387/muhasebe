@@ -11,7 +11,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar
+        <div className="print:hidden">
+          <Topbar
           email={ctx.email}
           name={ctx.name}
           role={ctx.role}
@@ -20,7 +21,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           memberships={ctx.memberships}
           activeTenantId={ctx.tenantId}
         />
-        <main className="flex-1 overflow-x-hidden p-4 lg:p-8">{children}</main>
+        </div>
+        <main className="flex-1 overflow-x-hidden p-4 lg:p-8 print:p-0">{children}</main>
       </div>
     </div>
   );

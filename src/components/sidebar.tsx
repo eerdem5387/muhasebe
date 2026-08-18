@@ -6,6 +6,7 @@ import clsx from "clsx";
 
 const NAV = [
   { href: "/", label: "Panel", group: "Genel" },
+  { href: "/monthly", label: "Aylık gelir-gider", group: "Genel" },
   { href: "/students", label: "Öğrenciler / Kayıtlar", group: "Tahsilat" },
   { href: "/collections", label: "Tahsilatlar", group: "Tahsilat" },
   { href: "/income", label: "Gelir planı", group: "Tahsilat" },

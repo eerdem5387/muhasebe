@@ -56,6 +56,19 @@ export function toYearMonth(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+export function fmtMonthUpper(yearMonth: string): string {
+  const [y, m] = yearMonth.split("-").map(Number);
+  if (!y || !m) return yearMonth;
+  const name = new Intl.DateTimeFormat("tr-TR", { month: "long" }).format(new Date(y, m - 1, 1));
+  return `${name.toLocaleUpperCase("tr-TR")}-${y}`;
+}
+
+export function shiftYearMonth(yearMonth: string, delta: number): string {
+  const [y, m] = yearMonth.split("-").map(Number);
+  const d = new Date(y, (m ?? 1) - 1 + delta, 1);
+  return toYearMonth(d);
+}
+
 export const CHANNEL_TR: Record<string, string> = {
   EFT: "EFT / Havale",
   CREDIT_CARD: "Kredi kartı",
