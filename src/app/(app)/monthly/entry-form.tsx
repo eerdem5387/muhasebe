@@ -127,7 +127,7 @@ export function ReportStructureModal({
     <FormModal
       buttonLabel="Kalemleri düzenle"
       title={side === "INCOME" ? "Gelir kalemleri" : "Gider kalemleri"}
-      buttonClassName="text-xs font-medium text-slate-500 underline hover:text-slate-800 !border-0 !bg-transparent !px-1 !py-1 !shadow-none"
+      buttonClassName="text-xs font-medium text-slate-700 underline hover:text-slate-900 !border-0 !bg-transparent !px-1 !py-1 !shadow-none"
     >
       {groups.length === 0 ? (
         <p className="text-sm text-slate-500">Henüz kalem yok. Önce gelir/gider eklerken ana ve alt kalem oluşturun.</p>

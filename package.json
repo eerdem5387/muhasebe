@@ -14,6 +14,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed-monthly": "tsx scripts/seed-monthly-mock.ts",
     "sync:school": "tsx scripts/run-school-sync.ts",
     "db:push": "prisma db push"
   },
