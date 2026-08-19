@@ -81,3 +81,16 @@ export const expenseRequestSchema = z.object({
   channel: z.enum(["CREDIT_CARD", "TRANSFER"]),
   notes: opt,
 });
+
+export const reportEntrySchema = z.object({
+  side: z.enum(["INCOME", "EXPENSE"]),
+  yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
+  groupId: opt,
+  groupName: opt,
+  itemId: opt,
+  itemName: opt,
+  amount: decimalString,
+  occurredAt: z.string().trim().min(1, "Tarih gerekli."),
+  payKind: z.enum(["CASH", "CARD"]).default("CASH"),
+  notes: opt,
+});

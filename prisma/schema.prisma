@@ -67,6 +67,16 @@ enum AttachmentKind {
   OTHER
 }
 
+enum ReportSide {
+  INCOME
+  EXPENSE
+}
+
+enum ReportPayKind {
+  CASH
+  CARD
+}
+
 model Tenant {
   id              String               @id @default(cuid())
   name            String
@@ -83,6 +93,9 @@ model Tenant {
   expenseRequests ExpenseRequest[]
   attachments     Attachment[]
   schoolSyncRuns  SchoolSyncRun[]
+  reportGroups    ReportGroup[]
+  reportItems     ReportItem[]
+  reportEntries   ReportEntry[]
 }
 
 model User {
@@ -287,6 +300,55 @@ model SchoolSyncRun {
   tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, startedAt])
+}
+
+model ReportGroup {
+  id        String       @id @default(cuid())
+  tenantId  String
+  side      ReportSide
+  name      String
+  sortOrder Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items     ReportItem[]
+
+  @@unique([tenantId, side, name])
+  @@index([tenantId, side])
+}
+
+model ReportItem {
+  id        String         @id @default(cuid())
+  tenantId  String
+  groupId   String
+  name      String
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  group     ReportGroup    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  entries   ReportEntry[]
+
+  @@unique([groupId, name])
+  @@index([tenantId])
+}
+
+model ReportEntry {
+  id         String        @id @default(cuid())
+  tenantId   String
+  itemId     String
+  yearMonth  String
+  amount     Decimal       @db.Decimal(18, 2)
+  occurredAt DateTime
+  payKind    ReportPayKind @default(CASH)
+  notes      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item       ReportItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, yearMonth])
+  @@index([itemId])
 }
 
 model Attachment {
