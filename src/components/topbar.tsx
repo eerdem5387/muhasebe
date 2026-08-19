@@ -2,6 +2,7 @@
 
 import { logoutAction, switchTenantAction } from "@/app/actions/auth";
 import { ROLE_TR } from "@/lib/format";
+import { MenuToggleButton } from "@/components/app-shell";
 
 export function Topbar({
   email,
@@ -25,6 +26,7 @@ export function Topbar({
   return (
     <header className="flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 lg:px-6">
       <div className="flex min-w-0 items-center gap-3">
+        <MenuToggleButton />
         {multi && memberships && memberships.length > 0 ? (
           <form action={switchTenantAction}>
             <label className="sr-only" htmlFor="tenantId">Okul / şirket</label>

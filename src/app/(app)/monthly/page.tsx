@@ -109,10 +109,10 @@ export default async function MonthlyReportPage({
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 divide-y divide-slate-200 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-          <section>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-100 px-4 py-2">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-900">Gelirler</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2">
+          <section className="border-b-[3px] border-slate-800 lg:border-b-0 lg:border-r-[3px]">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-slate-400 bg-slate-200 px-4 py-2">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900">Gelirler</h3>
               {canWrite && (
                 <div className="print:hidden flex items-center gap-2">
                   <ReportEntryModal side="INCOME" month={month} groups={incomeOptions} />
@@ -120,11 +120,11 @@ export default async function MonthlyReportPage({
                 </div>
               )}
             </div>
-            <table className="w-full">
+            <table className="w-full border-collapse">
               <thead className="bg-slate-100">
-                <tr>
-                  <th className="th">Açıklama</th>
-                  <th className="th text-right">Tutar</th>
+                <tr className="border-b-2 border-slate-400">
+                  <th className="th text-slate-700">Açıklama</th>
+                  <th className="th text-right text-slate-700">Tutar</th>
                   {canWrite && <th className="th print:hidden"></th>}
                 </tr>
               </thead>
@@ -138,9 +138,12 @@ export default async function MonthlyReportPage({
                     <GroupRows key={group.id} name={group.name} subtotal={subtotal} expense={false} extra={canWrite}>
                       {group.items.map((item) =>
                         item.entries.map((entry) => (
-                          <tr key={entry.id} className="border-b border-slate-100">
-                            <td className="px-4 py-2 pl-8 text-sm text-slate-700">{entryCaption(item.name, entry.notes)}</td>
-                            <td className="td text-right">{fmtMoney(Number(entry.amount))}</td>
+                          <tr key={entry.id} className="border-b border-slate-300 bg-white">
+                            <td className="px-4 py-2 pl-12 text-sm text-slate-600">
+                              <span className="mr-2 text-slate-400">└</span>
+                              {entryCaption(item.name, entry.notes)}
+                            </td>
+                            <td className="td border-l border-slate-200 text-right">{fmtMoney(Number(entry.amount))}</td>
                             {canWrite && (
                               <td className="td print:hidden text-right">
                                 <MiniForm action={deleteReportEntryAction}>
@@ -163,7 +166,7 @@ export default async function MonthlyReportPage({
                 )}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-slate-800 bg-slate-50 font-semibold">
+                <tr className="border-t-[3px] border-slate-800 bg-slate-100 font-semibold">
                   <td className="td">Toplam gelir</td>
                   <td className="td text-right">{fmtMoney(incomeTotal)}</td>
                   {canWrite && <td className="td print:hidden"></td>}
@@ -173,8 +176,8 @@ export default async function MonthlyReportPage({
           </section>
 
           <section>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-100 px-4 py-2">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-900">Giderler</h3>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-slate-400 bg-slate-200 px-4 py-2">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900">Giderler</h3>
               {canWrite && (
                 <div className="print:hidden flex items-center gap-2">
                   <ReportEntryModal side="EXPENSE" month={month} groups={expenseOptions} />
@@ -182,13 +185,13 @@ export default async function MonthlyReportPage({
                 </div>
               )}
             </div>
-            <table className="w-full">
+            <table className="w-full border-collapse">
               <thead className="bg-slate-100">
-                <tr>
-                  <th className="th">Açıklama</th>
-                  <th className="th text-right">Nakit</th>
-                  <th className="th text-right">KK harcama</th>
-                  <th className="th">Tarih</th>
+                <tr className="border-b-2 border-slate-400">
+                  <th className="th text-slate-700">Açıklama</th>
+                  <th className="th text-right text-slate-700">Nakit</th>
+                  <th className="th text-right text-slate-700">KK harcama</th>
+                  <th className="th text-slate-700">Tarih</th>
                   {canWrite && <th className="th print:hidden"></th>}
                 </tr>
               </thead>
@@ -200,11 +203,14 @@ export default async function MonthlyReportPage({
                     <GroupRows key={group.id} name={group.name} subtotal={cash + card} expense cash={cash} card={card} extra={canWrite}>
                       {group.items.map((item) =>
                         item.entries.map((entry) => (
-                          <tr key={entry.id} className="border-b border-slate-100">
-                            <td className="px-4 py-2 pl-8 text-sm text-slate-700">{entryCaption(item.name, entry.notes)}</td>
-                            <td className="td text-right">{entry.payKind === "CASH" ? fmtMoney(Number(entry.amount)) : ""}</td>
-                            <td className="td text-right">{entry.payKind === "CARD" ? fmtMoney(Number(entry.amount)) : ""}</td>
-                            <td className="td text-slate-500">{fmtDate(entry.occurredAt)}</td>
+                          <tr key={entry.id} className="border-b border-slate-300 bg-white">
+                            <td className="px-4 py-2 pl-12 text-sm text-slate-600">
+                              <span className="mr-2 text-slate-400">└</span>
+                              {entryCaption(item.name, entry.notes)}
+                            </td>
+                            <td className="td border-l border-slate-200 text-right">{entry.payKind === "CASH" ? fmtMoney(Number(entry.amount)) : ""}</td>
+                            <td className="td border-l border-slate-200 text-right">{entry.payKind === "CARD" ? fmtMoney(Number(entry.amount)) : ""}</td>
+                            <td className="td border-l border-slate-200 text-slate-500">{fmtDate(entry.occurredAt)}</td>
                             {canWrite && (
                               <td className="td print:hidden text-right">
                                 <MiniForm action={deleteReportEntryAction}>
@@ -227,7 +233,7 @@ export default async function MonthlyReportPage({
                 )}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-slate-800 bg-slate-50 font-semibold">
+                <tr className="border-t-[3px] border-slate-800 bg-slate-100 font-semibold">
                   <td className="td">Toplam gider</td>
                   <td className="td text-right">{fmtMoney(expenseCash)}</td>
                   <td className="td text-right">{fmtMoney(expenseCard)}</td>
@@ -238,7 +244,7 @@ export default async function MonthlyReportPage({
           </section>
         </div>
 
-        <div className={`border-t border-slate-200 px-4 py-3 text-right text-sm font-semibold ${net >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+        <div className={`border-t-[3px] border-slate-800 px-4 py-3 text-right text-sm font-semibold ${net >= 0 ? "text-emerald-700" : "text-red-700"}`}>
           Net (gelir − gider): {fmtMoney(net)}
         </div>
       </div>
@@ -265,18 +271,18 @@ function GroupRows({
 }) {
   return (
     <>
-      <tr className="border-b border-slate-200 bg-slate-50">
-        <td className="px-4 py-2 text-sm font-semibold text-slate-900">{name}</td>
+      <tr className="border-y-2 border-slate-400 bg-slate-200">
+        <td className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-900">{name}</td>
         {expense ? (
           <>
-            <td className="td text-right text-xs text-slate-500">{cash ? fmtMoney(cash) : ""}</td>
-            <td className="td text-right text-xs text-slate-500">{card ? fmtMoney(card) : ""}</td>
-            <td className="td"></td>
+            <td className="td border-l border-slate-300 text-right text-xs font-semibold text-slate-700">{cash ? fmtMoney(cash) : ""}</td>
+            <td className="td border-l border-slate-300 text-right text-xs font-semibold text-slate-700">{card ? fmtMoney(card) : ""}</td>
+            <td className="td border-l border-slate-300"></td>
             {extra ? <td className="td print:hidden"></td> : null}
           </>
         ) : (
           <>
-            <td className="td text-right text-xs font-semibold text-slate-600">{fmtMoney(subtotal)}</td>
+            <td className="td border-l border-slate-300 text-right text-sm font-bold text-slate-900">{fmtMoney(subtotal)}</td>
             {extra ? <td className="td print:hidden"></td> : null}
           </>
         )}

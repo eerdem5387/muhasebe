@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/context";
+import { AppShell } from "@/components/app-shell";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
 
@@ -8,7 +9,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!ctx) redirect("/api/auth/clear");
 
   return (
-    <div className="flex min-h-screen">
+    <AppShell>
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="print:hidden">
@@ -24,6 +25,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <main className="flex-1 overflow-x-hidden p-4 lg:p-8 print:p-0">{children}</main>
       </div>
-    </div>
+    </AppShell>
   );
 }
