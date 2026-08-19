@@ -2,7 +2,8 @@ import { requireAuth, canManageOperations } from "@/lib/context";
 import { PageHeader } from "@/components/page-header";
 import { MiniForm } from "@/components/action-form";
 import { fmtDate, fmtMoney, fmtMonthUpper, toYearMonth } from "@/lib/format";
-import { deleteReportEntryAction } from "@/app/actions/report";
+import { deleteReportEntryAction, seedMonthlyMockAction } from "@/app/actions/report";
+import { entryCaption } from "@/server/monthly-mock";
 import { MonthToolbar } from "./month-toolbar";
 import { ReportEntryModal, ReportStructureModal } from "./entry-form";
 
@@ -84,7 +85,19 @@ export default async function MonthlyReportPage({
         <PageHeader
           title="Aylık gelir-gider"
           description="Ana kalem ve alt kalemleri siz oluşturursunuz. Bu ay tutar yazılmayan kalem raporda görünmez."
-          actions={<MonthToolbar month={month} />}
+          actions={
+            <MonthToolbar
+              month={month}
+              extra={
+                canWrite ? (
+                  <MiniForm action={seedMonthlyMockAction}>
+                    <input type="hidden" name="yearMonth" value={month} />
+                    <button className="btn-secondary">Örnek tabloyu yükle</button>
+                  </MiniForm>
+                ) : null
+              }
+            />
+          }
         />
       </div>
 
@@ -126,7 +139,7 @@ export default async function MonthlyReportPage({
                       {group.items.map((item) =>
                         item.entries.map((entry) => (
                           <tr key={entry.id} className="border-b border-slate-100">
-                            <td className="px-4 py-2 pl-8 text-sm text-slate-700">{item.name}{entry.notes ? ` · ${entry.notes}` : ""}</td>
+                            <td className="px-4 py-2 pl-8 text-sm text-slate-700">{entryCaption(item.name, entry.notes)}</td>
                             <td className="td text-right">{fmtMoney(Number(entry.amount))}</td>
                             {canWrite && (
                               <td className="td print:hidden text-right">
@@ -188,7 +201,7 @@ export default async function MonthlyReportPage({
                       {group.items.map((item) =>
                         item.entries.map((entry) => (
                           <tr key={entry.id} className="border-b border-slate-100">
-                            <td className="px-4 py-2 pl-8 text-sm text-slate-700">{item.name}{entry.notes ? ` · ${entry.notes}` : ""}</td>
+                            <td className="px-4 py-2 pl-8 text-sm text-slate-700">{entryCaption(item.name, entry.notes)}</td>
                             <td className="td text-right">{entry.payKind === "CASH" ? fmtMoney(Number(entry.amount)) : ""}</td>
                             <td className="td text-right">{entry.payKind === "CARD" ? fmtMoney(Number(entry.amount)) : ""}</td>
                             <td className="td text-slate-500">{fmtDate(entry.occurredAt)}</td>

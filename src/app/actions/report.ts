@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { requireOperations } from "@/lib/context";
 import { reportEntrySchema } from "@/lib/validation";
 import { toErrorMessage } from "@/lib/errors";
+import { seedMonthlyMock } from "@/server/monthly-mock";
 import type { ActionState } from "./types";
 
 function revalidateMonth(yearMonth: string) {
@@ -78,6 +79,14 @@ export async function createReportEntryAction(
   }
   revalidateMonth(data.yearMonth);
   return { success: "Kayıt eklendi." };
+}
+
+export async function seedMonthlyMockAction(formData: FormData): Promise<void> {
+  const yearMonth = String(formData.get("yearMonth") ?? "");
+  if (!/^\d{4}-\d{2}$/.test(yearMonth)) return;
+  const ctx = await requireOperations();
+  await seedMonthlyMock(ctx.db, ctx.tenantId, yearMonth);
+  revalidateMonth(yearMonth);
 }
 
 export async function deleteReportEntryAction(formData: FormData): Promise<void> {
