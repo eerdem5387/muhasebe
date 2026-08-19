@@ -1,7 +1,7 @@
 import { requireAuth } from "@/lib/context";
 import { PageHeader } from "@/components/page-header";
 import { fmtDate, fmtMoney, fmtMonthUpper, toYearMonth } from "@/lib/format";
-import { buildExpenseLines, buildIncomeLines } from "@/server/monthly-report";
+import { buildExpenseLines, buildIncomeLines, mockMonthlyReport } from "@/server/monthly-report";
 import { MonthToolbar } from "./month-toolbar";
 
 function parseMonth(raw: string | undefined): string {
@@ -33,8 +33,10 @@ export default async function MonthlyReportPage({
     }),
   ]);
 
-  const income = buildIncomeLines(collections);
-  const outgoing = buildExpenseLines(expenses);
+  const hasRealData = collections.length > 0 || expenses.length > 0;
+  const mock = hasRealData ? null : mockMonthlyReport(month);
+  const income = hasRealData ? buildIncomeLines(collections) : mock!.income;
+  const outgoing = hasRealData ? buildExpenseLines(expenses) : mock!.outgoing;
   const expenseTotal = outgoing.cashTotal + outgoing.cardTotal;
   const net = income.total - expenseTotal;
   const rowCount = Math.max(income.lines.length, outgoing.lines.length, 1);
@@ -49,6 +51,11 @@ export default async function MonthlyReportPage({
       />
       </div>
 
+      {!hasRealData && (
+        <div className="print:hidden mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Bu tablo geçici örnek veriyle dolduruldu. Gerçek tahsilat veya gider kaydı olunca örnek kalkar.
+        </div>
+      )}
       <div className="monthly-report overflow-x-auto card">
         <div className="border-b border-slate-800 px-4 py-4 text-center">
           <p className="text-sm font-semibold tracking-wide text-slate-500">{ctx.tenantName}</p>

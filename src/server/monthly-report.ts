@@ -103,3 +103,51 @@ export function buildExpenseLines(
 
   return { lines, cashTotal, cardTotal };
 }
+
+/** TODO(mock): Aylık tabloyu doldurmak için geçici örnek. Gerçek veri gelince bu bloğu silin. */
+export function mockMonthlyReport(month: string): {
+  income: { lines: IncomeLine[]; total: number };
+  outgoing: { lines: ExpenseLine[]; cashTotal: number; cardTotal: number };
+} {
+  const [year, monthNum] = month.split("-").map(Number);
+  const d = (day: number) => new Date(year, (monthNum || 1) - 1, day);
+
+  return {
+    income: {
+      total: 939791.34,
+      lines: [
+        { key: "mock-inc-head", label: "Öğrenci gelirleri", amount: null, indent: 0, header: true },
+        { key: "mock-cash", label: "Nakit", amount: 185000, indent: 1 },
+        { key: "mock-cc", label: "Kredi kartı", amount: 412500, indent: 1 },
+        { key: "mock-ziraat", label: "Ziraat Bankası", amount: 240000, indent: 2 },
+        { key: "mock-akbank", label: "Akbank", amount: 112500, indent: 2 },
+        { key: "mock-isbank", label: "İş Bankası", amount: 60000, indent: 2 },
+        { key: "mock-eft", label: "EFT / Havale", amount: 278291.34, indent: 1 },
+        { key: "mock-check", label: "Çek", amount: 64000, indent: 1 },
+      ],
+    },
+    outgoing: {
+      cashTotal: 821500,
+      cardTotal: 18242,
+      lines: [
+        { key: "mock-exp-personel", label: "Personel giderleri", cash: null, card: null, date: null, header: true },
+        { key: "mock-maas", label: "Toplu maaşlar", cash: 420000, card: 0, date: d(5) },
+        { key: "mock-ders", label: "Ek ders ücretleri", cash: 38500, card: 0, date: d(12) },
+        { key: "mock-exp-sabit", label: "Sabit giderler", cash: null, card: null, date: null, header: true },
+        { key: "mock-elektrik", label: "Elektrik", cash: 24600, card: 0, date: d(8) },
+        { key: "mock-dogalgaz", label: "Doğalgaz", cash: 18900, card: 0, date: d(8) },
+        { key: "mock-internet", label: "Internet / telefon", cash: 0, card: 4250, date: d(10) },
+        { key: "mock-exp-kira", label: "Kira ve devlet ödemeleri", cash: null, card: null, date: null, header: true },
+        { key: "mock-kira", label: "Kira", cash: 150000, card: 0, date: d(3) },
+        { key: "mock-sgk", label: "SGK", cash: 98000, card: 0, date: d(15) },
+        { key: "mock-vergi", label: "Vergi / KDV", cash: 41200, card: 0, date: d(20) },
+        { key: "mock-exp-diger", label: "Diğer giderler", cash: null, card: null, date: null, header: true },
+        { key: "mock-temizlik", label: "Temizlik malzemesi", cash: 6800, card: 0, date: d(7) },
+        { key: "mock-reklam", label: "Reklam", cash: 0, card: 8900, date: d(14) },
+        { key: "mock-tamir", label: "Kazan tamiri", cash: 12500, card: 0, date: d(18) },
+        { key: "mock-kirtasiye", label: "Kırtasiye", cash: 0, card: 5092, date: d(22) },
+        { key: "mock-yakit", label: "Personel servis yakıt", cash: 11000, card: 0, date: d(25) },
+      ],
+    },
+  };
+}
