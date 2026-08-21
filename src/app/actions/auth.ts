@@ -8,6 +8,12 @@ import { clearSession, setActiveTenant, setSessionCookie } from "@/lib/session";
 import { loginSchema, schoolAdminSchema, userSchema } from "@/lib/validation";
 import { getAuthContext, requireSettings, requireSuperAdmin } from "@/lib/context";
 import { toErrorMessage } from "@/lib/errors";
+import {
+  checkLoginRateLimit,
+  clearLoginRateLimit,
+  clientIp,
+  recordLoginFailure,
+} from "@/lib/rate-limit";
 import type { ActionState } from "./types";
 
 export async function loginAction(
@@ -17,10 +23,18 @@ export async function loginAction(
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
   const { email, password } = parsed.data;
+  const ip = await clientIp();
+
+  const lockedFor = checkLoginRateLimit(email, ip);
+  if (lockedFor != null) {
+    const mins = Math.max(1, Math.ceil(lockedFor / 60));
+    return { error: `Çok fazla deneme. ${mins} dakika sonra tekrar deneyin.` };
+  }
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
+      recordLoginFailure(email, ip);
       return { error: "E-posta veya şifre hatalı." };
     }
     const membership = await prisma.tenantUser.findFirst({
@@ -28,8 +42,10 @@ export async function loginAction(
       orderBy: { createdAt: "asc" },
     });
     if (!membership) {
+      recordLoginFailure(email, ip);
       return { error: "Bu hesabın okul erişimi yok. Yönetici ile iletişime geçin." };
     }
+    clearLoginRateLimit(email, ip);
     await setSessionCookie({ userId: user.id, email: user.email });
     await setActiveTenant(membership.tenantId);
   } catch (err) {

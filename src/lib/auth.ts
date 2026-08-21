@@ -1,9 +1,8 @@
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
+import { resolveAuthSecret } from "./secrets";
 
-const SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET ?? "insecure-dev-secret-please-override-in-env",
-);
+const SECRET = new TextEncoder().encode(resolveAuthSecret());
 
 const SESSION_MAX_AGE = Number(process.env.SESSION_MAX_AGE ?? 60 * 60 * 24 * 7);
 

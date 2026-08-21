@@ -5,6 +5,8 @@ import { loginAction } from "@/app/actions/auth";
 import { emptyState } from "@/app/actions/types";
 import { FormError, SubmitButton } from "@/components/ui";
 
+const showDemoHints = process.env.NODE_ENV !== "production";
+
 export default function LoginPage() {
   const [state, action] = useActionState(loginAction, emptyState);
 
@@ -20,17 +22,34 @@ export default function LoginPage() {
           <FormError message={state.error} />
           <div>
             <label className="label" htmlFor="email">E-posta</label>
-            <input id="email" name="email" type="email" className="input" required autoComplete="email" defaultValue="demo@muhasebe.test" />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              className="input"
+              required
+              autoComplete="email"
+              defaultValue={showDemoHints ? "demo@muhasebe.test" : undefined}
+            />
           </div>
           <div>
             <label className="label" htmlFor="password">Şifre</label>
-            <input id="password" name="password" type="password" className="input" required autoComplete="current-password" />
+            <input
+              id="password"
+              name="password"
+              type="password"
+              className="input"
+              required
+              autoComplete="current-password"
+            />
           </div>
           <SubmitButton className="w-full">Giriş yap</SubmitButton>
         </form>
-        <p className="mt-4 text-center text-xs text-slate-400">
-          Süper admin: superadmin@okul.test / 123456
-        </p>
+        {showDemoHints ? (
+          <p className="mt-4 text-center text-xs text-slate-400">
+            Geliştirme: demo@muhasebe.test / 123456
+          </p>
+        ) : null}
       </div>
     </div>
   );

@@ -42,9 +42,12 @@ export function toErrorMessage(err: unknown): string {
   if (err instanceof AppError) return err.message;
   if (err instanceof Error) {
     if (err.message.includes("Environment variable not found: DATABASE_URL")) {
-      return "Veritabanı bağlantısı yok. Vercel → Storage'dan Postgres ekleyin veya Environment Variables'a DATABASE_URL yazın.";
+      return "Veritabanı bağlantısı yapılandırılmamış. Yöneticiye bildirin.";
     }
-    return err.message;
+    // Never leak Prisma / stack / internal messages to the client.
+    console.error("[app]", err);
+    return "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.";
   }
+  console.error("[app]", err);
   return "Beklenmeyen bir hata oluştu.";
 }
