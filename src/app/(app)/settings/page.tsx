@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireAuth, canManageSettings } from "@/lib/context";
 import { createCardBankAction, createCategoryAction, deleteCardBankAction, deleteCategoryAction } from "@/app/actions/settings";
 import { createSchoolWithAdminAction, createUserAction, deleteUserAction } from "@/app/actions/auth";
@@ -12,11 +13,7 @@ export const maxDuration = 60;
 export default async function SettingsPage() {
   const ctx = await requireAuth();
   if (!canManageSettings(ctx.role, ctx.isSuperAdmin)) {
-    return (
-      <div className="card p-8 text-sm text-slate-600">
-        Ayarlar yalnızca yöneticiler içindir.
-      </div>
-    );
+    redirect("/");
   }
 
   const [categories, banks, memberships, lastSync] = await Promise.all([

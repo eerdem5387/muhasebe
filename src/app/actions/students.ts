@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { requireOperations } from "@/lib/context";
+import { requireStudentRecords } from "@/lib/context";
 import { enrollmentSchema, studentSchema } from "@/lib/validation";
 import { toErrorMessage } from "@/lib/errors";
 import { buildIncomeSchedule, scheduleStatus } from "@/server/income-schedule";
@@ -16,7 +16,7 @@ export async function createStudentAction(
   const parsed = studentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
   try {
-    const ctx = await requireOperations();
+    const ctx = await requireStudentRecords();
     await ctx.db.student.create({
       data: {
         tenantId: ctx.tenantId,
@@ -49,7 +49,7 @@ export async function createEnrollmentAction(
   let studentId = "";
   let enrollmentId = "";
   try {
-    const ctx = await requireOperations();
+    const ctx = await requireStudentRecords();
     const student = await ctx.db.student.findFirst({ where: { id: data.studentId } });
     if (!student) return { error: "Öğrenci bulunamadı." };
 
@@ -93,7 +93,6 @@ export async function createEnrollmentAction(
       },
     });
     revalidatePath("/students");
-    revalidatePath("/income");
     studentId = student.id;
     enrollmentId = enrollment.id;
   } catch (err) {

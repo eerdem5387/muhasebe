@@ -9,17 +9,16 @@ const NAV = [
   { href: "/", label: "Panel", group: "Genel" },
   { href: "/monthly", label: "Aylık gelir-gider", group: "Genel" },
   { href: "/students", label: "Öğrenciler / Kayıtlar", group: "Tahsilat" },
-  { href: "/collections", label: "Tahsilatlar", group: "Tahsilat" },
-  { href: "/income", label: "Gelir planı", group: "Tahsilat" },
-  { href: "/expenses", label: "Giderler", group: "Harcama" },
+  { href: "/collections", label: "Gelir planı", group: "Tahsilat" },
   { href: "/requests", label: "Harcama talepleri", group: "Harcama" },
-  { href: "/settings", label: "Ayarlar", group: "Yönetim" },
+  { href: "/settings", label: "Ayarlar", group: "Yönetim", settingsOnly: true },
 ];
 
-export function Sidebar() {
+export function Sidebar({ showSettings = false }: { showSettings?: boolean }) {
   const pathname = usePathname();
   const { open, setOpen } = useSidebarUi();
-  const groups = [...new Set(NAV.map((n) => n.group))];
+  const items = NAV.filter((n) => !("settingsOnly" in n && n.settingsOnly) || showSettings);
+  const groups = [...new Set(items.map((n) => n.group))];
 
   return (
     <>
@@ -35,9 +34,7 @@ export function Sidebar() {
         id="app-sidebar"
         className={clsx(
           "z-40 shrink-0 border-r border-slate-200 bg-white print:hidden",
-          open
-            ? "fixed inset-y-0 left-0 w-64 lg:static lg:block"
-            : "hidden",
+          open ? "fixed inset-y-0 left-0 w-64 lg:static lg:block" : "hidden",
         )}
       >
         <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-6">
@@ -53,7 +50,7 @@ export function Sidebar() {
                 {group}
               </p>
               <div className="space-y-1">
-                {NAV.filter((n) => n.group === group).map((item) => {
+                {items.filter((n) => n.group === group).map((item) => {
                   const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
                   return (
                     <Link

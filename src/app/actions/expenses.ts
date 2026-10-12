@@ -2,10 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
-import { requireAuth, requireOperations, canApproveAsFounder, canApproveAsPrincipal } from "@/lib/context";
+import { requireAuth, requireOperations, canApproveAsPrincipal } from "@/lib/context";
 import { expenseRequestSchema, expenseSchema } from "@/lib/validation";
 import { ForbiddenError, toErrorMessage } from "@/lib/errors";
 import { requireUpload } from "@/server/uploads";
+import {
+  applyExpenseRequestApproval,
+  applyExpenseRequestRejection,
+} from "@/server/expense-request-approval";
+import {
+  pushFinanceEventToOkul,
+  serializeExpenseRequest,
+} from "@/server/okul-webhook";
 import type { ActionState } from "./types";
 
 export async function createExpenseAction(
@@ -77,7 +85,7 @@ export async function createExpenseRequestAction(
     const ctx = await requireOperations();
     const qty = new Prisma.Decimal(parsed.data.quantity);
     const unit = new Prisma.Decimal(parsed.data.unitPrice);
-    await ctx.db.expenseRequest.create({
+    const created = await ctx.db.expenseRequest.create({
       data: {
         tenantId: ctx.tenantId,
         title: parsed.data.title,
@@ -90,66 +98,47 @@ export async function createExpenseRequestAction(
         createdById: ctx.userId,
       },
     });
+    await pushFinanceEventToOkul(
+      "expense_request.upserted",
+      ctx.tenantId,
+      serializeExpenseRequest(created),
+    );
   } catch (err) {
     return { error: toErrorMessage(err) };
   }
   revalidatePath("/requests");
-  return { success: "Talep gönderildi. Müdür ve kurucu onayı bekleniyor." };
+  return { success: "Talep gönderildi. Müdür onayı (muhasebe) ve kurucu onayı (okul paneli) bekleniyor." };
 }
 
+/** Müdür onayı — kurucu onayı okul-yonetim panelinden gelir. */
 export async function approveRequestAction(formData: FormData): Promise<void> {
   const ctx = await requireAuth();
   const id = String(formData.get("id") ?? "");
   const as = String(formData.get("as") ?? "");
-  const req = await ctx.db.expenseRequest.findFirst({ where: { id } });
-  if (!req || req.status !== "PENDING") return;
+  if (as !== "principal") return;
+  if (!canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin)) throw new ForbiddenError();
 
-  const now = new Date();
-  let principalApprovedAt = req.principalApprovedAt;
-  let principalApprovedBy = req.principalApprovedBy;
-  let founderApprovedAt = req.founderApprovedAt;
-  let founderApprovedBy = req.founderApprovedBy;
-
-  if (as === "principal") {
-    if (!canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin)) throw new ForbiddenError();
-    principalApprovedAt = now;
-    principalApprovedBy = ctx.userId;
-  } else if (as === "founder") {
-    if (!canApproveAsFounder(ctx.role, ctx.isSuperAdmin)) throw new ForbiddenError();
-    founderApprovedAt = now;
-    founderApprovedBy = ctx.userId;
-  } else {
-    return;
-  }
-
-  const both = Boolean(principalApprovedAt && founderApprovedAt);
-  await ctx.db.expenseRequest.updateMany({
-    where: { id },
-    data: {
-      principalApprovedAt,
-      principalApprovedBy,
-      founderApprovedAt,
-      founderApprovedBy,
-      status: both ? "APPROVED" : "PENDING",
-    },
+  const result = await applyExpenseRequestApproval({
+    tenantId: ctx.tenantId,
+    requestId: id,
+    as: "principal",
+    actorId: ctx.userId,
   });
+  if (!result.ok) return;
   revalidatePath("/requests");
 }
 
 export async function rejectRequestAction(formData: FormData): Promise<void> {
   const ctx = await requireAuth();
   const id = String(formData.get("id") ?? "");
-  if (!canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin) && !canApproveAsFounder(ctx.role, ctx.isSuperAdmin)) {
+  if (!canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin)) {
     throw new ForbiddenError();
   }
-  await ctx.db.expenseRequest.updateMany({
-    where: { id, status: "PENDING" },
-    data: {
-      status: "REJECTED",
-      rejectedAt: new Date(),
-      rejectedById: ctx.userId,
-      rejectReason: String(formData.get("reason") ?? "") || null,
-    },
+  await applyExpenseRequestRejection({
+    tenantId: ctx.tenantId,
+    requestId: id,
+    actorId: ctx.userId,
+    reason: String(formData.get("reason") ?? "") || null,
   });
   revalidatePath("/requests");
 }

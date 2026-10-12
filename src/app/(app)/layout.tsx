@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/lib/context";
+import { canManageSettings, getAuthContext } from "@/lib/context";
 import { AppShell } from "@/components/app-shell";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <AppShell>
-      <Sidebar />
+      <Sidebar showSettings={canManageSettings(ctx.role, ctx.isSuperAdmin)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="print:hidden">
           <Topbar

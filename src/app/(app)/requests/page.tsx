@@ -1,4 +1,4 @@
-import { requireAuth, canApproveAsFounder, canApproveAsPrincipal, canManageOperations } from "@/lib/context";
+import { requireAuth, canApproveAsPrincipal, canManageOperations } from "@/lib/context";
 import { approveRequestAction, createExpenseRequestAction, rejectRequestAction } from "@/app/actions/expenses";
 import { PageHeader } from "@/components/page-header";
 import { ActionForm, MiniForm } from "@/components/action-form";
@@ -12,14 +12,13 @@ export default async function RequestsPage() {
   const ctx = await requireAuth();
   const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const asPrincipal = canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin);
-  const asFounder = canApproveAsFounder(ctx.role, ctx.isSuperAdmin);
   const requests = await ctx.db.expenseRequest.findMany({ orderBy: { createdAt: "desc" } });
 
   return (
     <div>
       <PageHeader
         title="Harcama talepleri"
-        description="Müdür ve kurucu onayı (sıra önemli değil) tamamlanmadan harcama yapılamaz."
+        description="Müdür onayı burada; kurucu onayı okul yönetim panelindeki Finans bölümünden yapılır. İkisi tamamlanınca talep onaylanır."
         actions={
           canWrite ? (
             <FormModal buttonLabel="Talep oluştur" title="Yeni talep">
@@ -73,22 +72,15 @@ export default async function RequestsPage() {
             </div>
             <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
               <span>Müdür: {r.principalApprovedAt ? "onayladı" : "bekliyor"}</span>
-              <span>Kurucu: {r.founderApprovedAt ? "onayladı" : "bekliyor"}</span>
+              <span>Kurucu (okul paneli): {r.founderApprovedAt ? "onayladı" : "bekliyor"}</span>
             </div>
-            {r.status === "PENDING" && (asPrincipal || asFounder) && (
+            {r.status === "PENDING" && asPrincipal && (
               <div className="mt-4 flex flex-wrap gap-2">
-                {asPrincipal && !r.principalApprovedAt && (
+                {!r.principalApprovedAt && (
                   <MiniForm action={approveRequestAction}>
                     <input type="hidden" name="id" value={r.id} />
                     <input type="hidden" name="as" value="principal" />
                     <button className="btn-primary !py-1.5 text-xs">Müdür onayı</button>
-                  </MiniForm>
-                )}
-                {asFounder && !r.founderApprovedAt && (
-                  <MiniForm action={approveRequestAction}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <input type="hidden" name="as" value="founder" />
-                    <button className="btn-primary !py-1.5 text-xs">Kurucu onayı</button>
                   </MiniForm>
                 )}
                 <MiniForm action={rejectRequestAction}>

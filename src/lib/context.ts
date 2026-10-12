@@ -79,6 +79,24 @@ export function canManageSettings(role: TenantRole, isSuperAdmin = false): boole
   return isSuperAdmin || role === "ADMIN";
 }
 
+/** Sözleşme / öğrenci tutarını elle değiştirme — yalnızca süper admin. */
+export function canOverrideContractAmounts(isSuperAdmin = false): boolean {
+  return isSuperAdmin;
+}
+
+/** Öğrenci ekleme / yıllık kayıt — yönetici veya süper admin. */
+export function canManageStudentRecords(role: TenantRole, isSuperAdmin = false): boolean {
+  return isSuperAdmin || role === "ADMIN";
+}
+
+export async function requireStudentRecords(): Promise<AuthContext> {
+  const ctx = await requireAuth();
+  if (!canManageStudentRecords(ctx.role, ctx.isSuperAdmin)) {
+    throw new ForbiddenError("Bu işlem için yönetici yetkisi gerekir.");
+  }
+  return ctx;
+}
+
 export async function requireOperations(): Promise<AuthContext> {
   const ctx = await requireAuth();
   if (!canManageOperations(ctx.role, ctx.isSuperAdmin)) {

@@ -1,15 +1,49 @@
 import { requireAuth, canManageOperations } from "@/lib/context";
 import { PageHeader } from "@/components/page-header";
-import { MiniForm } from "@/components/action-form";
-import { fmtDate, fmtMoney, fmtMonthUpper, toYearMonth } from "@/lib/format";
-import { deleteReportEntryAction, seedMonthlyMockAction } from "@/app/actions/report";
-import { entryCaption } from "@/server/monthly-mock";
+import { fmtMoney, fmtMonthUpper, toYearMonth } from "@/lib/format";
 import { MonthToolbar } from "./month-toolbar";
-import { ReportEntryModal, ReportStructureModal } from "./entry-form";
+import { IncomeAddModal, ExpenseAddModal } from "./entry-form";
+import { CashbookPanel, type CashbookRow } from "./cashbook-panel";
 
 function parseMonth(raw: string | undefined): string {
   if (raw && /^\d{4}-\d{2}$/.test(raw)) return raw;
   return toYearMonth(new Date());
+}
+
+function toRow(entry: {
+  id: string;
+  side: "INCOME" | "EXPENSE";
+  amount: { toString(): string } | number;
+  occurredAt: Date;
+  channel: CashbookRow["channel"];
+  bankName: string | null;
+  checkInstallments: number | null;
+  incomeCategory: CashbookRow["incomeCategory"];
+  payerFirstName: string | null;
+  payerLastName: string | null;
+  payerIdentityNo: string | null;
+  expenseTitle: string | null;
+  payeeIdentityNo: string | null;
+  invoiceNo: string | null;
+  notes: string | null;
+}): CashbookRow {
+  return {
+    id: entry.id,
+    side: entry.side,
+    amount: Number(entry.amount),
+    occurredAt: entry.occurredAt.toISOString(),
+    channel: entry.channel,
+    bankName: entry.bankName,
+    checkInstallments: entry.checkInstallments,
+    incomeCategory: entry.incomeCategory,
+    payerFirstName: entry.payerFirstName,
+    payerLastName: entry.payerLastName,
+    payerIdentityNo: entry.payerIdentityNo,
+    expenseTitle: entry.expenseTitle,
+    payeeIdentityNo: entry.payeeIdentityNo,
+    invoiceNo: entry.invoiceNo,
+    notes: entry.notes,
+  };
 }
 
 export default async function MonthlyReportPage({
@@ -21,88 +55,29 @@ export default async function MonthlyReportPage({
   const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const month = parseMonth((await searchParams).month);
 
-  const groups = await ctx.db.reportGroup.findMany({
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    include: {
-      items: {
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        include: {
-          entries: {
-            where: { yearMonth: month },
-            orderBy: { occurredAt: "asc" },
-          },
-        },
-      },
-    },
+  const entries = await ctx.db.cashbookEntry.findMany({
+    where: { yearMonth: month },
+    orderBy: [{ occurredAt: "asc" }, { createdAt: "asc" }],
   });
 
-  const incomeGroups = groups.filter((g) => g.side === "INCOME");
-  const expenseGroups = groups.filter((g) => g.side === "EXPENSE");
-
-  const visibleIncome = incomeGroups
-    .map((g) => ({
-      ...g,
-      items: g.items.filter((it) => it.entries.length > 0),
-    }))
-    .filter((g) => g.items.length > 0);
-
-  const visibleExpense = expenseGroups
-    .map((g) => ({
-      ...g,
-      items: g.items.filter((it) => it.entries.length > 0),
-    }))
-    .filter((g) => g.items.length > 0);
-
-  const incomeTotal = visibleIncome.reduce(
-    (sum, g) => sum + g.items.reduce((s, it) => s + it.entries.reduce((e, row) => e + Number(row.amount), 0), 0),
-    0,
-  );
-  const expenseCash = visibleExpense.reduce(
-    (sum, g) => sum + g.items.reduce((s, it) => s + it.entries.filter((e) => e.payKind === "CASH").reduce((n, row) => n + Number(row.amount), 0), 0),
-    0,
-  );
-  const expenseCard = visibleExpense.reduce(
-    (sum, g) => sum + g.items.reduce((s, it) => s + it.entries.filter((e) => e.payKind === "CARD").reduce((n, row) => n + Number(row.amount), 0), 0),
-    0,
-  );
-  const expenseTotal = expenseCash + expenseCard;
+  const incomeRows = entries.filter((e) => e.side === "INCOME").map(toRow);
+  const expenseRows = entries.filter((e) => e.side === "EXPENSE").map(toRow);
+  const incomeTotal = incomeRows.reduce((s, r) => s + r.amount, 0);
+  const expenseTotal = expenseRows.reduce((s, r) => s + r.amount, 0);
   const net = incomeTotal - expenseTotal;
-
-  const incomeOptions = incomeGroups.map((g) => ({
-    id: g.id,
-    name: g.name,
-    items: g.items.map((it) => ({ id: it.id, name: it.name })),
-  }));
-  const expenseOptions = expenseGroups.map((g) => ({
-    id: g.id,
-    name: g.name,
-    items: g.items.map((it) => ({ id: it.id, name: it.name })),
-  }));
 
   return (
     <div>
       <div className="print:hidden">
         <PageHeader
           title="Aylık gelir-gider"
-          description="Ana kalem ve alt kalemleri siz oluşturursunuz. Bu ay tutar yazılmayan kalem raporda görünmez."
-          actions={
-            <MonthToolbar
-              month={month}
-              extra={
-                canWrite ? (
-                  <MiniForm action={seedMonthlyMockAction}>
-                    <input type="hidden" name="yearMonth" value={month} />
-                    <button className="btn-secondary">Örnek tabloyu yükle</button>
-                  </MiniForm>
-                ) : null
-              }
-            />
-          }
+          description="Gelir ve giderleri buradan kaydedin (Gider ekle). Satıra tıklayarak detayı açabilirsiniz."
+          actions={<MonthToolbar month={month} />}
         />
       </div>
 
       <div className="monthly-report overflow-hidden card">
-        <div className="border-b border-slate-800 px-4 py-4 text-center">
+        <div className="border-b-2 border-slate-800 px-4 py-4 text-center">
           <p className="text-sm font-semibold tracking-wide text-slate-500">{ctx.tenantName}</p>
           <h2 className="mt-1 text-xl font-bold uppercase tracking-wide text-slate-900">
             {fmtMonthUpper(month)} tarihli gelir gider ödeme özet tablosu
@@ -111,183 +86,38 @@ export default async function MonthlyReportPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-2">
           <section className="border-b-[3px] border-slate-800 lg:border-b-0 lg:border-r-[3px]">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-slate-400 bg-slate-200 px-4 py-2">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900">Gelirler</h3>
-              {canWrite && (
-                <div className="print:hidden flex items-center gap-2">
-                  <ReportEntryModal side="INCOME" month={month} groups={incomeOptions} />
-                  <ReportStructureModal side="INCOME" month={month} groups={incomeOptions} />
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-slate-800 bg-white px-4 py-3">
+              <h3 className="text-base font-bold uppercase tracking-wide text-slate-900">Gelirler</h3>
+              {canWrite ? (
+                <div className="print:hidden">
+                  <IncomeAddModal month={month} />
                 </div>
-              )}
+              ) : null}
             </div>
-            <table className="w-full border-collapse">
-              <thead className="bg-slate-100">
-                <tr className="border-b-2 border-slate-400">
-                  <th className="th text-slate-700">Açıklama</th>
-                  <th className="th text-right text-slate-700">Tutar</th>
-                  {canWrite && <th className="th print:hidden"></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleIncome.map((group) => {
-                  const subtotal = group.items.reduce(
-                    (s, it) => s + it.entries.reduce((n, e) => n + Number(e.amount), 0),
-                    0,
-                  );
-                  return (
-                    <GroupRows key={group.id} name={group.name} subtotal={subtotal} expense={false} extra={canWrite}>
-                      {group.items.map((item) =>
-                        item.entries.map((entry) => (
-                          <tr key={entry.id} className="border-b border-slate-300 bg-white">
-                            <td className="px-4 py-2 pl-12 text-sm text-slate-600">
-                              <span className="mr-2 text-slate-400">└</span>
-                              {entryCaption(item.name, entry.notes)}
-                            </td>
-                            <td className="td border-l border-slate-200 text-right">{fmtMoney(Number(entry.amount))}</td>
-                            {canWrite && (
-                              <td className="td print:hidden text-right">
-                                <MiniForm action={deleteReportEntryAction}>
-                                  <input type="hidden" name="id" value={entry.id} />
-                                  <input type="hidden" name="yearMonth" value={month} />
-                                  <button className="text-xs text-red-600">Sil</button>
-                                </MiniForm>
-                              </td>
-                            )}
-                          </tr>
-                        )),
-                      )}
-                    </GroupRows>
-                  );
-                })}
-                {visibleIncome.length === 0 && (
-                  <tr>
-                    <td className="td text-slate-400" colSpan={canWrite ? 3 : 2}>Bu ay gelir yok.</td>
-                  </tr>
-                )}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-[3px] border-slate-800 bg-slate-100 font-semibold">
-                  <td className="td">Toplam gelir</td>
-                  <td className="td text-right">{fmtMoney(incomeTotal)}</td>
-                  {canWrite && <td className="td print:hidden"></td>}
-                </tr>
-              </tfoot>
-            </table>
+            <CashbookPanel side="INCOME" month={month} rows={incomeRows} canWrite={canWrite} />
           </section>
 
           <section>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-slate-400 bg-slate-200 px-4 py-2">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900">Giderler</h3>
-              {canWrite && (
-                <div className="print:hidden flex items-center gap-2">
-                  <ReportEntryModal side="EXPENSE" month={month} groups={expenseOptions} />
-                  <ReportStructureModal side="EXPENSE" month={month} groups={expenseOptions} />
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-slate-800 bg-white px-4 py-3">
+              <h3 className="text-base font-bold uppercase tracking-wide text-slate-900">Giderler</h3>
+              {canWrite ? (
+                <div className="print:hidden">
+                  <ExpenseAddModal month={month} />
                 </div>
-              )}
+              ) : null}
             </div>
-            <table className="w-full border-collapse">
-              <thead className="bg-slate-100">
-                <tr className="border-b-2 border-slate-400">
-                  <th className="th text-slate-700">Açıklama</th>
-                  <th className="th text-right text-slate-700">Nakit</th>
-                  <th className="th text-right text-slate-700">KK harcama</th>
-                  <th className="th text-slate-700">Tarih</th>
-                  {canWrite && <th className="th print:hidden"></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleExpense.map((group) => {
-                  const cash = group.items.reduce((s, it) => s + it.entries.filter((e) => e.payKind === "CASH").reduce((n, e) => n + Number(e.amount), 0), 0);
-                  const card = group.items.reduce((s, it) => s + it.entries.filter((e) => e.payKind === "CARD").reduce((n, e) => n + Number(e.amount), 0), 0);
-                  return (
-                    <GroupRows key={group.id} name={group.name} subtotal={cash + card} expense cash={cash} card={card} extra={canWrite}>
-                      {group.items.map((item) =>
-                        item.entries.map((entry) => (
-                          <tr key={entry.id} className="border-b border-slate-300 bg-white">
-                            <td className="px-4 py-2 pl-12 text-sm text-slate-600">
-                              <span className="mr-2 text-slate-400">└</span>
-                              {entryCaption(item.name, entry.notes)}
-                            </td>
-                            <td className="td border-l border-slate-200 text-right">{entry.payKind === "CASH" ? fmtMoney(Number(entry.amount)) : ""}</td>
-                            <td className="td border-l border-slate-200 text-right">{entry.payKind === "CARD" ? fmtMoney(Number(entry.amount)) : ""}</td>
-                            <td className="td border-l border-slate-200 text-slate-500">{fmtDate(entry.occurredAt)}</td>
-                            {canWrite && (
-                              <td className="td print:hidden text-right">
-                                <MiniForm action={deleteReportEntryAction}>
-                                  <input type="hidden" name="id" value={entry.id} />
-                                  <input type="hidden" name="yearMonth" value={month} />
-                                  <button className="text-xs text-red-600">Sil</button>
-                                </MiniForm>
-                              </td>
-                            )}
-                          </tr>
-                        )),
-                      )}
-                    </GroupRows>
-                  );
-                })}
-                {visibleExpense.length === 0 && (
-                  <tr>
-                    <td className="td text-slate-400" colSpan={canWrite ? 5 : 4}>Bu ay gider yok.</td>
-                  </tr>
-                )}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-[3px] border-slate-800 bg-slate-100 font-semibold">
-                  <td className="td">Toplam gider</td>
-                  <td className="td text-right">{fmtMoney(expenseCash)}</td>
-                  <td className="td text-right">{fmtMoney(expenseCard)}</td>
-                  <td className="td text-right" colSpan={canWrite ? 2 : 1}>{fmtMoney(expenseTotal)}</td>
-                </tr>
-              </tfoot>
-            </table>
+            <CashbookPanel side="EXPENSE" month={month} rows={expenseRows} canWrite={canWrite} />
           </section>
         </div>
 
-        <div className={`border-t-[3px] border-slate-800 px-4 py-3 text-right text-sm font-semibold ${net >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+        <div
+          className={`border-t-[3px] border-slate-800 px-4 py-3 text-right text-sm font-semibold ${
+            net >= 0 ? "text-emerald-700" : "text-red-700"
+          }`}
+        >
           Net (gelir − gider): {fmtMoney(net)}
         </div>
       </div>
     </div>
-  );
-}
-
-function GroupRows({
-  name,
-  subtotal,
-  expense,
-  cash,
-  card,
-  extra,
-  children,
-}: {
-  name: string;
-  subtotal: number;
-  expense: boolean;
-  cash?: number;
-  card?: number;
-  extra?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <tr className="border-y-2 border-slate-400 bg-slate-200">
-        <td className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-900">{name}</td>
-        {expense ? (
-          <>
-            <td className="td border-l border-slate-300 text-right text-xs font-semibold text-slate-700">{cash ? fmtMoney(cash) : ""}</td>
-            <td className="td border-l border-slate-300 text-right text-xs font-semibold text-slate-700">{card ? fmtMoney(card) : ""}</td>
-            <td className="td border-l border-slate-300"></td>
-            {extra ? <td className="td print:hidden"></td> : null}
-          </>
-        ) : (
-          <>
-            <td className="td border-l border-slate-300 text-right text-sm font-bold text-slate-900">{fmtMoney(subtotal)}</td>
-            {extra ? <td className="td print:hidden"></td> : null}
-          </>
-        )}
-      </tr>
-      {children}
-    </>
   );
 }

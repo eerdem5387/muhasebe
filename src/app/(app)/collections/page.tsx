@@ -1,106 +1,151 @@
-import { requireAuth, canManageOperations } from "@/lib/context";
-import { createCollectionAction } from "@/app/actions/collections";
+import { requireAuth, canManageOperations, canOverrideContractAmounts } from "@/lib/context";
 import { PageHeader } from "@/components/page-header";
-import { ActionForm } from "@/components/action-form";
-import { FormModal } from "@/components/form-modal";
-import { CHANNEL_TR, fmtDate, fmtMoney, todayISO } from "@/lib/format";
+import { Badge } from "@/components/ui";
+import { CHANNEL_TR, STATUS_TR, fmtDate, fmtMoney, fmtMonth, resolveActiveAcademicYear } from "@/lib/format";
+import { scheduleStatus } from "@/server/income-schedule";
+import { ensureDefaultIncomePlanCategories } from "@/app/actions/income-plans";
+import { IncomeCategoryCreateModal, IncomePlanCreateModal } from "./income-plan-form";
 
-export default async function CollectionsPage() {
+const color = { BLOCKED: "amber", EXPECTED: "blue", REALIZED: "green" } as const;
+
+export default async function IncomePlanPage() {
   const ctx = await requireAuth();
   const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
-  const [collections, enrollments] = await Promise.all([
-    ctx.db.collection.findMany({
-      orderBy: { collectedAt: "desc" },
+  const canOverride = canOverrideContractAmounts(ctx.isSuperAdmin);
+
+  await ensureDefaultIncomePlanCategories(ctx.tenantId, ctx.db);
+
+  const yearRows = await ctx.db.enrollment.findMany({
+    distinct: ["academicYear"],
+    select: { academicYear: true },
+  });
+  const activeYear = resolveActiveAcademicYear(yearRows.map((r) => r.academicYear));
+
+  const [categories, plans, enrollments] = await Promise.all([
+    ctx.db.incomePlanCategory.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+    }),
+    ctx.db.incomePlan.findMany({
+      orderBy: { planDate: "desc" },
       include: {
-        attachments: { select: { id: true, filename: true, kind: true } },
-        enrollment: { include: { student: { select: { fullName: true } } } },
+        category: true,
+        lines: { orderBy: { installmentIndex: "asc" } },
       },
+      take: 200,
     }),
     ctx.db.enrollment.findMany({
-      where: { status: "ACTIVE" },
-      include: { student: { select: { fullName: true } } },
-      orderBy: { enrolledAt: "desc" },
+      where: { status: "ACTIVE", academicYear: activeYear },
+      include: { student: { select: { id: true, fullName: true, classroom: true } } },
+      orderBy: { student: { fullName: "asc" } },
     }),
   ]);
+
+  const enrollmentNames = new Map(
+    enrollments.map((e) => [e.id, e.student.fullName] as const),
+  );
+
+  const students = enrollments.map((e) => ({
+    enrollmentId: e.id,
+    fullName: e.student.fullName,
+    classroom: e.student.classroom,
+    academicYear: e.academicYear,
+    annualFee: Number(e.annualFee),
+  }));
+
+  const lines = plans.flatMap((p) =>
+    p.lines.map((line) => ({
+      ...line,
+      plan: p,
+      liveStatus: scheduleStatus(line.releaseDate, false),
+      studentName: p.enrollmentId ? enrollmentNames.get(p.enrollmentId) ?? null : null,
+    })),
+  );
+
+  const grouped = new Map<string, typeof lines>();
+  for (const line of lines) {
+    const list = grouped.get(line.yearMonth) ?? [];
+    list.push(line);
+    grouped.set(line.yearMonth, list);
+  }
+  const months = [...grouped.keys()].sort();
 
   return (
     <div>
       <PageHeader
-        title="Tahsilatlar"
-        description="Ödeme belgesi (slip / çek fotoğrafı / makbuz) zorunludur."
+        title="Gelir planı"
+        description="Gelir kalemi ve (gerekirse) öğrenci seçerek taksitli plan oluşturun. Öğrenci gelirinde sözleşme tutarı muhasebe kullanıcısı tarafından değiştirilemez."
         actions={
           canWrite ? (
-            <FormModal buttonLabel="Tahsilat ekle" title="Yeni tahsilat">
-              <ActionForm action={createCollectionAction} submitLabel="Kaydet">
-                <div>
-                  <label className="label" htmlFor="enrollmentId">Kayıt</label>
-                  <select id="enrollmentId" name="enrollmentId" className="input" required>
-                    <option value="">Seçin…</option>
-                    {enrollments.map((e) => (
-                      <option key={e.id} value={e.id}>{e.student.fullName} · {e.academicYear}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label" htmlFor="amount">Tutar</label>
-                  <input id="amount" name="amount" className="input" required />
-                </div>
-                <div>
-                  <label className="label" htmlFor="collectedAt">Tarih</label>
-                  <input id="collectedAt" name="collectedAt" type="date" className="input" defaultValue={todayISO()} required />
-                </div>
-                <div>
-                  <label className="label" htmlFor="paymentChannel">Kanal</label>
-                  <select id="paymentChannel" name="paymentChannel" className="input" defaultValue="EFT">
-                    <option value="EFT">EFT / Havale (makbuz)</option>
-                    <option value="CREDIT_CARD">Kredi kartı (slip)</option>
-                    <option value="CHECK">Çek (fotoğraf)</option>
-                    <option value="CASH">Nakit (makbuz)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label" htmlFor="file">Belge</label>
-                  <input id="file" name="file" type="file" accept="image/*,.pdf" className="input" required />
-                </div>
-                <div>
-                  <label className="label" htmlFor="notes">Not</label>
-                  <input id="notes" name="notes" className="input" />
-                </div>
-              </ActionForm>
-            </FormModal>
+            <div className="flex flex-wrap gap-2">
+              <IncomeCategoryCreateModal />
+              <IncomePlanCreateModal
+                categories={categories.map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  requiresStudent: c.requiresStudent,
+                }))}
+                students={students}
+                canOverrideAmount={canOverride}
+              />
+            </div>
           ) : undefined
         }
       />
-      <div className="overflow-hidden card">
-        <table className="w-full">
-          <thead className="border-b border-slate-200 bg-slate-50">
-            <tr>
-              <th className="th">Tarih</th>
-              <th className="th">Öğrenci</th>
-              <th className="th">Kanal</th>
-              <th className="th text-right">Tutar</th>
-              <th className="th">Belge</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {collections.map((c) => (
-              <tr key={c.id}>
-                <td className="td">{fmtDate(c.collectedAt)}</td>
-                <td className="td">{c.enrollment.student.fullName}</td>
-                <td className="td">{CHANNEL_TR[c.paymentChannel]}</td>
-                <td className="td text-right">{fmtMoney(Number(c.amount))}</td>
-                <td className="td">
-                  {c.attachments.map((a) => (
-                    <a key={a.id} href={`/api/attachments/${a.id}`} className="text-brand-600 underline" target="_blank">{a.filename}</a>
+
+      <div className="space-y-6">
+        {months.map((ym) => {
+          const rows = grouped.get(ym) ?? [];
+          const totals = { BLOCKED: 0, EXPECTED: 0, REALIZED: 0 };
+          for (const r of rows) totals[r.liveStatus] += Number(r.amount);
+          return (
+            <section key={ym} className="overflow-hidden card">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                <h2 className="font-semibold text-slate-800">{fmtMonth(ym)}</h2>
+                <p className="text-xs text-slate-500">
+                  Bloke {fmtMoney(totals.BLOCKED)} · Beklenen {fmtMoney(totals.EXPECTED)} · Gerçekleşen{" "}
+                  {fmtMoney(totals.REALIZED)}
+                </p>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400">
+                    <th className="px-4 py-2">Kalem / Öğrenci</th>
+                    <th className="px-4 py-2">Kanal</th>
+                    <th className="px-4 py-2">Taksit</th>
+                    <th className="px-4 py-2 text-right">Tutar</th>
+                    <th className="px-4 py-2">Serbest</th>
+                    <th className="px-4 py-2">Durum</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rows.map((r) => (
+                    <tr key={r.id}>
+                      <td className="td">
+                        <span className="font-medium">{r.plan.category.name}</span>
+                        {r.studentName ? (
+                          <span className="block text-xs text-slate-500">{r.studentName}</span>
+                        ) : null}
+                      </td>
+                      <td className="td">{CHANNEL_TR[r.plan.paymentChannel]}</td>
+                      <td className="td">
+                        {r.installmentIndex}/{r.plan.installmentCount}
+                      </td>
+                      <td className="td text-right">{fmtMoney(Number(r.amount))}</td>
+                      <td className="td text-slate-500">{fmtDate(r.releaseDate)}</td>
+                      <td className="td">
+                        <Badge color={color[r.liveStatus]}>{STATUS_TR[r.liveStatus]}</Badge>
+                      </td>
+                    </tr>
                   ))}
-                </td>
-              </tr>
-            ))}
-            {collections.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={5}>Henüz tahsilat yok.</td></tr>
-            )}
-          </tbody>
-        </table>
+                </tbody>
+              </table>
+            </section>
+          );
+        })}
+        {months.length === 0 && (
+          <p className="text-sm text-slate-500">Henüz gelir planı yok. “Gelir planı ekle” ile oluşturun.</p>
+        )}
       </div>
     </div>
   );

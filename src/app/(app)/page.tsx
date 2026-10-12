@@ -7,17 +7,15 @@ import Link from "next/link";
 export default async function DashboardPage() {
   const ctx = await requireAuth();
   const ym = toYearMonth(new Date());
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const [lines, expenses, pending, students, collections] = await Promise.all([
+  const [lines, cashbookExpenses, pending, students, collections] = await Promise.all([
     ctx.db.incomeScheduleLine.findMany({
       where: { yearMonth: ym, enrollment: { status: "ACTIVE" } },
       include: { enrollment: { include: { collections: { select: { id: true } } } } },
     }),
-    ctx.db.expense.findMany({
-      where: { spentAt: { gte: monthStart, lt: monthEnd } },
+    ctx.db.cashbookEntry.findMany({
+      where: { yearMonth: ym, side: "EXPENSE" },
+      select: { amount: true },
     }),
     ctx.db.expenseRequest.count({ where: { status: "PENDING" } }),
     ctx.db.student.count(),
@@ -32,7 +30,7 @@ export default async function DashboardPage() {
     else if (status === "EXPECTED") expected += n;
     else realized += n;
   }
-  const expenseTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  const expenseTotal = cashbookExpenses.reduce((s, e) => s + Number(e.amount), 0);
   const collectedEnrollments = new Set(collections.map((c) => c.enrollmentId)).size;
   const enrollmentCount = await ctx.db.enrollment.count({ where: { status: "ACTIVE" } });
   const collectionRate = enrollmentCount ? Math.round((collectedEnrollments / enrollmentCount) * 100) : 0;
@@ -41,7 +39,7 @@ export default async function DashboardPage() {
     { label: "Bu ay gerçekleşen gelir", value: fmtMoney(realized) },
     { label: "Bu ay beklenen", value: fmtMoney(expected) },
     { label: "Bu ay blokeli", value: fmtMoney(blocked) },
-    { label: "Bu ay gider", value: fmtMoney(expenseTotal) },
+    { label: "Bu ay gider", value: fmtMoney(expenseTotal), href: "/monthly" },
     { label: "Bekleyen talep", value: String(pending), href: "/requests" },
     { label: "Tahsilat oranı", value: `%${collectionRate}` },
     { label: "Öğrenci", value: String(students), href: "/students" },

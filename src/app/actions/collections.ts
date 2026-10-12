@@ -64,7 +64,6 @@ export async function createCollectionAction(
   }
 
   revalidatePath("/collections");
-  revalidatePath("/income");
   revalidatePath("/students");
   return { success: "Tahsilat ve belge kaydedildi." };
 }

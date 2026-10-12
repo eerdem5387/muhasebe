@@ -69,6 +69,26 @@ export function shiftYearMonth(yearMonth: string, delta: number): string {
   return toYearMonth(d);
 }
 
+/** Türk eğitim yılı: Eylül–Ağustos. Örn. Ekim 2026 → 2026-2027 */
+export function currentAcademicYear(now = new Date()): string {
+  const y = now.getFullYear();
+  const month = now.getMonth(); // 0 = Ocak
+  if (month >= 8) return `${y}-${y + 1}`;
+  return `${y - 1}-${y}`;
+}
+
+/** Verilen yıllar + takvim varsayılanından en güncel aktif yılı seçer. */
+export function resolveActiveAcademicYear(years: string[], now = new Date()): string {
+  const calendar = currentAcademicYear(now);
+  const normalized = years
+    .map((y) => y.trim())
+    .filter((y) => /^\d{4}-\d{4}$/.test(y))
+    .sort();
+  const fromDb = normalized[normalized.length - 1];
+  if (!fromDb) return calendar;
+  return fromDb >= calendar ? fromDb : calendar;
+}
+
 export const CHANNEL_TR: Record<string, string> = {
   EFT: "EFT / Havale",
   CREDIT_CARD: "Kredi kartı",

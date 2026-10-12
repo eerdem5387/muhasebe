@@ -77,6 +77,19 @@ enum ReportPayKind {
   CARD
 }
 
+enum CashbookIncomeCategory {
+  STUDENT
+  TRIP
+  FOOD
+  OTHER
+}
+
+enum CashbookChannel {
+  CASH
+  CREDIT_CARD
+  CHECK
+}
+
 model Tenant {
   id              String               @id @default(cuid())
   name            String
@@ -93,9 +106,13 @@ model Tenant {
   expenseRequests ExpenseRequest[]
   attachments     Attachment[]
   schoolSyncRuns  SchoolSyncRun[]
-  reportGroups    ReportGroup[]
-  reportItems     ReportItem[]
-  reportEntries   ReportEntry[]
+  reportGroups         ReportGroup[]
+  reportItems          ReportItem[]
+  reportEntries        ReportEntry[]
+  cashbookEntries      CashbookEntry[]
+  incomePlanCategories IncomePlanCategory[]
+  incomePlans          IncomePlan[]
+  incomePlanLines      IncomePlanLine[]
 }
 
 model User {
@@ -227,6 +244,65 @@ model Collection {
   @@index([enrollmentId])
 }
 
+/// Kullanıcının oluşturduğu gelir kalemi (öğrenci / kitap / servis vb.)
+model IncomePlanCategory {
+  id              String       @id @default(cuid())
+  tenantId        String
+  name            String
+  requiresStudent Boolean      @default(false)
+  active          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plans           IncomePlan[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+/// Gelir planı: tutar + kanal + taksit; öğrenci gelirinde sözleşme ücreti kilitli.
+model IncomePlan {
+  id               String            @id @default(cuid())
+  tenantId         String
+  categoryId       String
+  enrollmentId     String?
+  amount           Decimal           @db.Decimal(18, 2)
+  paymentChannel   PaymentChannel
+  installmentCount Int               @default(1)
+  blockDays        Int               @default(0)
+  bankName         String?
+  planDate         DateTime
+  notes            String?
+  createdById      String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category         IncomePlanCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  lines            IncomePlanLine[]
+
+  @@index([tenantId])
+  @@index([categoryId])
+  @@index([enrollmentId])
+}
+
+model IncomePlanLine {
+  id               String         @id @default(cuid())
+  tenantId         String
+  planId           String
+  installmentIndex Int
+  amount           Decimal        @db.Decimal(18, 2)
+  releaseDate      DateTime
+  yearMonth        String
+  status           ScheduleStatus @default(EXPECTED)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan             IncomePlan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, yearMonth])
+  @@index([planId])
+}
+
 model LedgerCategory {
   id        String       @id @default(cuid())
   tenantId  String
@@ -349,6 +425,36 @@ model ReportEntry {
 
   @@index([tenantId, yearMonth])
   @@index([itemId])
+}
+
+/// Aylık gelir-gider kasa defteri satırı (öğrenci/gezi/yemek veya harcama).
+model CashbookEntry {
+  id                String                  @id @default(cuid())
+  tenantId          String
+  side              ReportSide
+  yearMonth         String
+  amount            Decimal                 @db.Decimal(18, 2)
+  occurredAt        DateTime
+  channel           CashbookChannel
+  bankName          String?
+  checkInstallments Int?
+  /// Gelir: Öğrenci / Gezi / Yemek / Diğer
+  incomeCategory    CashbookIncomeCategory?
+  payerFirstName    String?
+  payerLastName     String?
+  payerIdentityNo   String?
+  /// Gider: harcama yapılan adı
+  expenseTitle      String?
+  /// Gider: vergi no veya TC
+  payeeIdentityNo   String?
+  invoiceNo         String?
+  notes             String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, yearMonth, side])
+  @@index([tenantId, yearMonth])
 }
 
 model Attachment {

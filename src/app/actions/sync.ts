@@ -14,7 +14,6 @@ export async function runSchoolSyncAction(
     const ctx = await requireOperations();
     const result = await runSchoolSync(ctx.tenantId);
     revalidatePath("/students");
-    revalidatePath("/income");
     revalidatePath("/collections");
     revalidatePath("/settings");
     if (!result.ok) return { error: result.error ?? "Senkronizasyon başarısız." };

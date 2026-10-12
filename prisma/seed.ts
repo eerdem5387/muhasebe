@@ -4,10 +4,11 @@ import { buildIncomeSchedule, scheduleStatus } from "@/server/income-schedule";
 
 const prisma = new PrismaClient();
 const PASSWORD = "123456";
+const LEVENT_MUHASEBE_PASSWORD = "LeventMuh2026!";
 
-async function upsertUser(email: string, name: string, isSuperAdmin = false) {
+async function upsertUser(email: string, name: string, isSuperAdmin = false, password = PASSWORD) {
   const existing = await prisma.user.findUnique({ where: { email } });
-  const passwordHash = await hashPassword(PASSWORD);
+  const passwordHash = await hashPassword(password);
   if (existing) {
     return prisma.user.update({
       where: { id: existing.id },
@@ -24,20 +25,38 @@ async function main() {
 
   const users = [
     { email: "superadmin@okul.test", name: "Süper Admin", role: "ADMIN" as const, isSuperAdmin: true },
-    { email: "demo@muhasebe.test", name: "Okul Yöneticisi", role: "ADMIN" as const, isSuperAdmin: false },
+    { email: "demo@muhasebe.test", name: "Okul Yöneticisi", role: "ADMIN" as const, isSuperAdmin: true },
     { email: "muhasebe@okul.test", name: "Ayşe Muhasebe", role: "ACCOUNTANT" as const, isSuperAdmin: false },
+    {
+      email: "muhasebe@leventokullari.com",
+      name: "Levent Muhasebe",
+      role: "ACCOUNTANT" as const,
+      isSuperAdmin: false,
+    },
     { email: "mudur@okul.test", name: "Mehmet Müdür", role: "PRINCIPAL" as const, isSuperAdmin: false },
     { email: "kurucu@okul.test", name: "Ali Kurucu", role: "FOUNDER" as const, isSuperAdmin: false },
   ];
 
   for (const u of users) {
-    const user = await upsertUser(u.email, u.name, u.isSuperAdmin);
+    const password =
+      u.email === "muhasebe@leventokullari.com" ? LEVENT_MUHASEBE_PASSWORD : PASSWORD;
+    const user = await upsertUser(u.email, u.name, u.isSuperAdmin, password);
     await prisma.tenantUser.upsert({
       where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
       update: { role: u.role },
       create: { tenantId: tenant.id, userId: user.id, role: u.role },
     });
   }
+
+  // Varsayılan gelir planı kalemleri
+  await prisma.incomePlanCategory.createMany({
+    data: [
+      { tenantId: tenant.id, name: "Öğrenci geliri", requiresStudent: true },
+      { tenantId: tenant.id, name: "Kitap geliri", requiresStudent: false },
+      { tenantId: tenant.id, name: "Araç servis geliri", requiresStudent: false },
+    ],
+    skipDuplicates: true,
+  });
 
   const ziraat = await prisma.cardBankSetting.upsert({
     where: { id: "seed-ziraat" },
@@ -103,12 +122,13 @@ async function main() {
     });
   }
 
-  console.log("Seed tamamlandı. Şifre (tümü): 123456");
-  console.log("  superadmin@okul.test (Süper Admin)");
-  console.log("  demo@muhasebe.test  (Yönetici)");
-  console.log("  muhasebe@okul.test  (Muhasebe)");
-  console.log("  mudur@okul.test     (Müdür)");
-  console.log("  kurucu@okul.test    (Kurucu)");
+  console.log("Seed tamamlandı.");
+  console.log("  superadmin@okul.test / 123456 (Süper Admin)");
+  console.log("  demo@muhasebe.test / 123456 (Süper Admin + Yönetici)");
+  console.log("  muhasebe@okul.test / 123456 (Muhasebe)");
+  console.log(`  muhasebe@leventokullari.com / ${LEVENT_MUHASEBE_PASSWORD} (Muhasebe, kısıtlı)`);
+  console.log("  mudur@okul.test / 123456 (Müdür)");
+  console.log("  kurucu@okul.test / 123456 (Kurucu)");
 }
 
 main()
