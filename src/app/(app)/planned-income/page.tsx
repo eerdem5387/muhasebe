@@ -16,7 +16,7 @@ export default async function PlannedIncomePage({
     <div>
       <PageHeader
         title="Planlanmış gelirler"
-        description="Ay ay hesabınıza geçecek tutarları takvimden görün. Turuncu planlanan, yeşil hesaba geçen ödemelerdir."
+        description="Yalnızca Gelir planı ile oluşturduğunuz kalemler burada görünür. Turuncu planlanan, yeşil hesaba geçen ödemelerdir."
       />
       <PlannedIncomeCalendar key={month} month={month} events={events} />
     </div>

@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "@/lib/auth";
-import { buildIncomeSchedule, scheduleStatus } from "@/server/income-schedule";
 
 const prisma = new PrismaClient();
 const PASSWORD = "123456";
@@ -92,12 +91,6 @@ async function main() {
   const hasEnrollment = await prisma.enrollment.findFirst({ where: { studentId: student.id } });
   if (!hasEnrollment) {
     const enrolledAt = new Date();
-    const drafts = buildIncomeSchedule({
-      annualFee: 100000,
-      installmentCount: 10,
-      paymentDate: enrolledAt,
-      blockDays: ziraat.blockDays,
-    });
     await prisma.enrollment.create({
       data: {
         tenantId: tenant.id,
@@ -108,16 +101,6 @@ async function main() {
         installmentCount: 10,
         cardBankId: ziraat.id,
         enrolledAt,
-        scheduleLines: {
-          create: drafts.map((line) => ({
-            tenantId: tenant.id,
-            installmentIndex: line.installmentIndex,
-            amount: line.amount,
-            releaseDate: line.releaseDate,
-            yearMonth: line.yearMonth,
-            status: scheduleStatus(line.releaseDate, false),
-          })),
-        },
       },
     });
   }

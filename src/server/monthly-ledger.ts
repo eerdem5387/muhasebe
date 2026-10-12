@@ -46,37 +46,34 @@ function splitName(fullName: string): { first: string; last: string } {
   return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] ?? "" };
 }
 
+/**
+ * Aylık tablo: elle kasa + yalnızca "Gelir planı" satırları.
+ * Okul senkronundan gelen otomatik taksitler burada görünmez.
+ */
 export async function loadMonthlyLedger(db: Db, yearMonth: string): Promise<{
   incomeRows: MonthlyLedgerRow[];
   expenseRows: MonthlyLedgerRow[];
 }> {
-  const [cashbook, scheduleLines, planLines] = await Promise.all([
+  const [cashbook, planLines] = await Promise.all([
     db.cashbookEntry.findMany({
       where: { yearMonth },
       orderBy: [{ occurredAt: "asc" }, { createdAt: "asc" }],
     }),
-    db.incomeScheduleLine.findMany({
-      where: { yearMonth },
-      include: {
-        enrollment: {
-          select: {
-            paymentChannel: true,
-            student: { select: { id: true, fullName: true } },
-          },
-        },
-      },
-      orderBy: [{ releaseDate: "asc" }, { installmentIndex: "asc" }],
-    }),
-    // Öğrenci planları zaten IncomeScheduleLine olarak tutuluyor; çift sayımı önle.
     db.incomePlanLine.findMany({
-      where: { yearMonth, plan: { enrollmentId: null } },
+      where: { yearMonth },
       include: {
         plan: {
           select: {
             paymentChannel: true,
             bankName: true,
             notes: true,
+            enrollmentId: true,
             category: { select: { name: true } },
+            enrollment: {
+              select: {
+                student: { select: { id: true, fullName: true } },
+              },
+            },
           },
         },
       },
@@ -121,36 +118,11 @@ export async function loadMonthlyLedger(db: Db, yearMonth: string): Promise<{
     else expenseRows.push(row);
   }
 
-  for (const line of scheduleLines) {
-    const { first, last } = splitName(line.enrollment.student.fullName);
-    const channel = line.plannedChannel ?? line.enrollment.paymentChannel;
-    const tag: LedgerTag = line.status === "REALIZED" ? "CREDITED" : "PLANNED";
-    incomeRows.push({
-      id: `schedule:${line.id}`,
-      side: "INCOME",
-      amount: Number(line.amount),
-      occurredAt: line.releaseDate.toISOString(),
-      channel: null,
-      channelLabel: channelLabel(channel),
-      bankName: null,
-      checkInstallments: null,
-      incomeCategory: "STUDENT",
-      payerFirstName: first || null,
-      payerLastName: last || null,
-      payerIdentityNo: null,
-      expenseTitle: null,
-      payeeIdentityNo: null,
-      invoiceNo: null,
-      notes: null,
-      tag,
-      title: `Öğrenci · ${line.enrollment.student.fullName}`,
-      href: `/students/${line.enrollment.student.id}`,
-      deletable: false,
-    });
-  }
-
   for (const line of planLines) {
     const tag: LedgerTag = line.status === "REALIZED" ? "CREDITED" : "PLANNED";
+    const student = line.plan.enrollment?.student;
+    const { first, last } = student ? splitName(student.fullName) : { first: "", last: "" };
+    const isStudent = Boolean(student);
     incomeRows.push({
       id: `plan:${line.id}`,
       side: "INCOME",
@@ -160,17 +132,19 @@ export async function loadMonthlyLedger(db: Db, yearMonth: string): Promise<{
       channelLabel: channelLabel(line.plan.paymentChannel),
       bankName: line.plan.bankName,
       checkInstallments: null,
-      incomeCategory: "OTHER",
-      payerFirstName: null,
-      payerLastName: null,
+      incomeCategory: isStudent ? "STUDENT" : "OTHER",
+      payerFirstName: first || null,
+      payerLastName: last || null,
       payerIdentityNo: null,
       expenseTitle: null,
       payeeIdentityNo: null,
       invoiceNo: null,
       notes: line.plan.notes,
       tag,
-      title: line.plan.category.name,
-      href: "/collections",
+      title: student
+        ? `${line.plan.category.name} · ${student.fullName}`
+        : line.plan.category.name,
+      href: student ? `/students/${student.id}` : "/collections",
       deletable: false,
     });
   }

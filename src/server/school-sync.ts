@@ -1,6 +1,5 @@
 import { PaymentChannel, Prisma, type RegistrationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { buildIncomeSchedule, scheduleStatus } from "@/server/income-schedule";
 import {
   fetchSourceActiveYear,
   fetchSourceContracts,
@@ -103,34 +102,6 @@ function latestContracts(rows: SourceContractRow[], fallbackYear: string): Sourc
     }
   }
   return [...map.values()];
-}
-
-async function rebuildSchedule(input: {
-  tenantId: string;
-  enrollmentId: string;
-  annualFee: Prisma.Decimal;
-  installmentCount: number;
-  enrolledAt: Date;
-  blockDays: number;
-}) {
-  const drafts = buildIncomeSchedule({
-    annualFee: input.annualFee,
-    installmentCount: input.installmentCount,
-    paymentDate: input.enrolledAt,
-    blockDays: input.blockDays,
-  });
-  await prisma.incomeScheduleLine.deleteMany({ where: { enrollmentId: input.enrollmentId, tenantId: input.tenantId } });
-  await prisma.incomeScheduleLine.createMany({
-    data: drafts.map((line) => ({
-      tenantId: input.tenantId,
-      enrollmentId: input.enrollmentId,
-      installmentIndex: line.installmentIndex,
-      amount: line.amount,
-      releaseDate: line.releaseDate,
-      yearMonth: line.yearMonth,
-      status: scheduleStatus(line.releaseDate, false),
-    })),
-  });
 }
 
 export async function runSchoolSync(tenantId?: string): Promise<SchoolSyncResult> {
@@ -275,7 +246,7 @@ export async function runSchoolSync(tenantId?: string): Promise<SchoolSyncResult
       };
 
       if (!existing) {
-        const enrollment = await prisma.enrollment.create({
+        await prisma.enrollment.create({
           data: {
             tenantId: targetTenantId,
             studentId,
@@ -288,15 +259,7 @@ export async function runSchoolSync(tenantId?: string): Promise<SchoolSyncResult
             ...meta,
           },
         });
-        const bank = banks.find((b) => b.id === cardBankId);
-        await rebuildSchedule({
-          tenantId: targetTenantId,
-          enrollmentId: enrollment.id,
-          annualFee,
-          installmentCount: payment.installmentCount,
-          enrolledAt,
-          blockDays: payment.channel === "CREDIT_CARD" ? (bank?.blockDays ?? 0) : 0,
-        });
+        // Ödeme planı satırları senkronla oluşmaz; muhasebe "Gelir planı" ile eklenir.
         enrollmentsUpserted += 1;
         continue;
       }

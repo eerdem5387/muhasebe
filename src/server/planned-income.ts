@@ -21,65 +21,56 @@ function dayKey(d: Date): string {
   return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
 }
 
+/** Yalnızca "Gelir planı" ile oluşturulmuş satırlar. */
 export async function loadPlannedIncomeMonth(db: Db, yearMonth: string): Promise<PlannedIncomeEvent[]> {
-  const [scheduleLines, planLines] = await Promise.all([
-    db.incomeScheduleLine.findMany({
-      where: { yearMonth },
-      include: {
-        enrollment: {
-          select: {
-            paymentChannel: true,
-            student: { select: { id: true, fullName: true, classroom: true } },
+  const planLines = await db.incomePlanLine.findMany({
+    where: { yearMonth },
+    include: {
+      plan: {
+        select: {
+          paymentChannel: true,
+          category: { select: { name: true } },
+          enrollment: {
+            select: {
+              student: { select: { id: true, fullName: true, classroom: true } },
+            },
           },
         },
       },
-      orderBy: [{ releaseDate: "asc" }, { installmentIndex: "asc" }],
-    }),
-    db.incomePlanLine.findMany({
-      where: { yearMonth, plan: { enrollmentId: null } },
-      include: {
-        plan: {
-          select: {
-            paymentChannel: true,
-            category: { select: { name: true } },
-          },
-        },
-      },
-      orderBy: [{ releaseDate: "asc" }, { installmentIndex: "asc" }],
-    }),
-  ]);
+    },
+    orderBy: [{ releaseDate: "asc" }, { installmentIndex: "asc" }],
+  });
 
-  const events: PlannedIncomeEvent[] = [];
-
-  for (const line of scheduleLines) {
-    const channel = line.plannedChannel ?? line.enrollment.paymentChannel;
-    const classroom = line.enrollment.student.classroom;
-    events.push({
-      id: `schedule:${line.id}`,
-      date: dayKey(line.releaseDate),
-      yearMonth: line.yearMonth,
-      amount: Number(line.amount),
-      title: line.enrollment.student.fullName,
-      source: classroom ? `Öğrenci · ${classroom}` : "Öğrenci",
-      channel: CHANNEL_TR[channel] ?? channel,
-      status: line.status === "REALIZED" ? "CREDITED" : "PLANNED",
-      href: `/students/${line.enrollment.student.id}`,
-    });
-  }
-
-  for (const line of planLines) {
-    events.push({
+  const events: PlannedIncomeEvent[] = planLines.map((line: {
+    id: string;
+    amount: { toString(): string } | number;
+    releaseDate: Date;
+    yearMonth: string;
+    status: string;
+    plan: {
+      paymentChannel: string;
+      category: { name: string };
+      enrollment: { student: { id: string; fullName: string; classroom: string | null } } | null;
+    };
+  }) => {
+    const student = line.plan.enrollment?.student;
+    const classroom = student?.classroom;
+    return {
       id: `plan:${line.id}`,
       date: dayKey(line.releaseDate),
       yearMonth: line.yearMonth,
       amount: Number(line.amount),
-      title: line.plan.category.name,
-      source: "Gelir planı",
+      title: student?.fullName ?? line.plan.category.name,
+      source: student
+        ? classroom
+          ? `${line.plan.category.name} · ${classroom}`
+          : line.plan.category.name
+        : "Gelir planı",
       channel: CHANNEL_TR[line.plan.paymentChannel] ?? line.plan.paymentChannel,
-      status: line.status === "REALIZED" ? "CREDITED" : "PLANNED",
-      href: "/collections",
-    });
-  }
+      status: line.status === "REALIZED" ? "CREDITED" as const : "PLANNED" as const,
+      href: student ? `/students/${student.id}` : "/collections",
+    };
+  });
 
   events.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, "tr"));
   return events;

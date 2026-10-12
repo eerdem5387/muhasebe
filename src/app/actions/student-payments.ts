@@ -146,6 +146,21 @@ export async function recordStudentPaymentAction(
         data: { status: "REALIZED", plannedChannel: parsed.data.paymentChannel },
       });
     }
+
+    const planLine = await ctx.db.incomePlanLine.findFirst({
+      where: {
+        status: { not: "REALIZED" },
+        plan: { enrollmentId: enrollment.id },
+      },
+      orderBy: [{ releaseDate: "asc" }, { installmentIndex: "asc" }],
+    });
+    if (planLine) {
+      await ctx.db.incomePlanLine.update({
+        where: { id: planLine.id },
+        data: { status: "REALIZED" },
+      });
+    }
+
     await applyAutoProgress(ctx.db, enrollment.id);
   } catch (err) {
     return { error: toErrorMessage(err) };

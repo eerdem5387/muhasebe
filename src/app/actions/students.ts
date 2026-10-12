@@ -6,7 +6,6 @@ import { Prisma } from "@prisma/client";
 import { requireStudentRecords } from "@/lib/context";
 import { enrollmentSchema, studentSchema } from "@/lib/validation";
 import { toErrorMessage } from "@/lib/errors";
-import { buildIncomeSchedule, scheduleStatus } from "@/server/income-schedule";
 import type { ActionState } from "./types";
 
 export async function createStudentAction(
@@ -53,21 +52,13 @@ export async function createEnrollmentAction(
     const student = await ctx.db.student.findFirst({ where: { id: data.studentId } });
     if (!student) return { error: "Öğrenci bulunamadı." };
 
-    let blockDays = 0;
     if (data.paymentChannel === "CREDIT_CARD" && data.cardBankId) {
       const bank = await ctx.db.cardBankSetting.findFirst({ where: { id: data.cardBankId, active: true } });
       if (!bank) return { error: "Banka anlaşması bulunamadı." };
-      blockDays = bank.blockDays;
     }
 
     const enrolledAt = new Date(`${data.enrolledAt}T12:00:00`);
     const installmentCount = data.paymentChannel === "CREDIT_CARD" ? data.installmentCount : 1;
-    const drafts = buildIncomeSchedule({
-      annualFee: data.annualFee,
-      installmentCount,
-      paymentDate: enrolledAt,
-      blockDays,
-    });
 
     const enrollment = await ctx.db.enrollment.create({
       data: {
@@ -80,16 +71,6 @@ export async function createEnrollmentAction(
         cardBankId: data.paymentChannel === "CREDIT_CARD" ? data.cardBankId || null : null,
         enrolledAt,
         notes: data.notes || null,
-        scheduleLines: {
-          create: drafts.map((line) => ({
-            tenantId: ctx.tenantId,
-            installmentIndex: line.installmentIndex,
-            amount: line.amount,
-            releaseDate: line.releaseDate,
-            yearMonth: line.yearMonth,
-            status: scheduleStatus(line.releaseDate, false),
-          })),
-        },
       },
     });
     revalidatePath("/students");

@@ -31,7 +31,7 @@ export default async function MonthlyReportPage({
       <div className="print:hidden">
         <PageHeader
           title="Aylık gelir-gider"
-          description="Elle eklenen kalemler normal görünür. Öğrenci / gelir planından gelenler Planlanmış veya Hesaba geçti etiketi alır."
+          description="Elle eklenen kalemler normal görünür. Yalnızca Gelir planı ile oluşturulan satırlar Planlanmış / Hesaba geçti etiketiyle gelir."
           actions={<MonthToolbar month={month} />}
         />
       </div>

@@ -51,6 +51,8 @@ export default async function IncomePlanPage() {
     classroom: e.student.classroom,
     academicYear: e.academicYear,
     annualFee: Number(e.annualFee),
+    paymentChannel: e.paymentChannel,
+    sourcePaymentPlan: e.sourcePaymentPlan,
   }));
 
   const lines = plans.flatMap((p) =>
@@ -74,7 +76,7 @@ export default async function IncomePlanPage() {
     <div>
       <PageHeader
         title="Gelir planı"
-        description="Gelir kalemi ve (gerekirse) öğrenci seçerek taksitli plan oluşturun. Öğrenci gelirinde sözleşme tutarı muhasebe kullanıcısı tarafından değiştirilemez."
+        description="Öğrenci ve tutarlar okul sisteminden gelir. Plan tarihi geçmiş bir gün olabilir — eski kayıtları işlemek için uygun tarihi seçin. Plan oluşturmadan aylık tabloya düşmez."
         actions={
           canWrite ? (
             <div className="flex flex-wrap gap-2">

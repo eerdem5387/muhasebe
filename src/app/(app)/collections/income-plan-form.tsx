@@ -7,7 +7,7 @@ import {
   createIncomePlanAction,
   createIncomePlanCategoryAction,
 } from "@/app/actions/income-plans";
-import { todayISO, fmtMoney } from "@/lib/format";
+import { CHANNEL_TR, todayISO, fmtMoney } from "@/lib/format";
 
 export type PlanCategoryOption = {
   id: string;
@@ -21,6 +21,8 @@ export type PlanStudentOption = {
   classroom: string | null;
   academicYear: string;
   annualFee: number;
+  paymentChannel: string;
+  sourcePaymentPlan: string | null;
 };
 
 export function IncomePlanCreateModal({
@@ -95,23 +97,33 @@ export function IncomePlanCreateModal({
             <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200">
               {filteredStudents.map((s) => {
                 const active = s.enrollmentId === enrollmentId;
+                const channelLabel = CHANNEL_TR[s.paymentChannel] ?? s.paymentChannel;
                 return (
                   <button
                     key={s.enrollmentId}
                     type="button"
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50 ${
+                    className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
                       active ? "bg-brand-50 text-brand-800" : "text-slate-700"
                     }`}
                     onClick={() => {
                       setEnrollmentId(s.enrollmentId);
                       setStudentQuery(s.fullName);
+                      if (["CREDIT_CARD", "EFT", "CHECK", "CASH"].includes(s.paymentChannel)) {
+                        setChannel(s.paymentChannel);
+                      }
                     }}
                   >
-                    <span>
-                      {s.fullName}
-                      {s.classroom ? ` · ${s.classroom}` : ""}
+                    <span className="min-w-0">
+                      <span className="block font-medium">
+                        {s.fullName}
+                        {s.classroom ? ` · ${s.classroom}` : ""}
+                      </span>
+                      <span className={`mt-0.5 block text-xs ${active ? "text-brand-700" : "text-slate-500"}`}>
+                        {channelLabel}
+                        {s.sourcePaymentPlan ? ` · ${s.sourcePaymentPlan}` : ""}
+                      </span>
                     </span>
-                    <span className="font-medium">{fmtMoney(s.annualFee)}</span>
+                    <span className="shrink-0 font-medium">{fmtMoney(s.annualFee)}</span>
                   </button>
                 );
               })}
