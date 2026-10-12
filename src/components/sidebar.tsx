@@ -8,6 +8,7 @@ import { useSidebarUi } from "@/components/app-shell";
 const NAV = [
   { href: "/", label: "Panel", group: "Genel" },
   { href: "/monthly", label: "Aylık gelir-gider", group: "Genel" },
+  { href: "/planned-income", label: "Planlanmış gelirler", group: "Genel" },
   { href: "/students", label: "Öğrenciler / Kayıtlar", group: "Tahsilat" },
   { href: "/collections", label: "Gelir planı", group: "Tahsilat" },
   { href: "/requests", label: "Harcama talepleri", group: "Harcama" },

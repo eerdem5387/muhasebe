@@ -14,6 +14,8 @@ import type { ActionState } from "./types";
 function revalidateIncome() {
   revalidatePath("/collections");
   revalidatePath("/students");
+  revalidatePath("/monthly");
+  revalidatePath("/planned-income");
 }
 
 const DEFAULT_CATEGORIES: Array<{ name: string; requiresStudent: boolean }> = [

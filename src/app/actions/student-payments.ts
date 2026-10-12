@@ -15,6 +15,8 @@ function revalidateStudent(studentId: string) {
   revalidatePath("/students");
   revalidatePath(`/students/${studentId}`);
   revalidatePath("/collections");
+  revalidatePath("/monthly");
+  revalidatePath("/planned-income");
 }
 
 async function applyAutoProgress(

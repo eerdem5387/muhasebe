@@ -1,28 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { MiniForm } from "@/components/action-form";
+import { Badge } from "@/components/ui";
 import { deleteCashbookEntryAction } from "@/app/actions/cashbook";
-import { CASHBOOK_CHANNEL_TR, INCOME_CATEGORY_TR, cashbookTitle } from "@/lib/cashbook";
+import { CASHBOOK_CHANNEL_TR, INCOME_CATEGORY_TR } from "@/lib/cashbook";
 import { fmtDate, fmtMoney } from "@/lib/format";
+import type { MonthlyLedgerRow } from "@/server/monthly-ledger";
 
-export type CashbookRow = {
-  id: string;
-  side: "INCOME" | "EXPENSE";
-  amount: number;
-  occurredAt: string;
-  channel: keyof typeof CASHBOOK_CHANNEL_TR;
-  bankName: string | null;
-  checkInstallments: number | null;
-  incomeCategory: keyof typeof INCOME_CATEGORY_TR | null;
-  payerFirstName: string | null;
-  payerLastName: string | null;
-  payerIdentityNo: string | null;
-  expenseTitle: string | null;
-  payeeIdentityNo: string | null;
-  invoiceNo: string | null;
-  notes: string | null;
-};
+export type CashbookRow = MonthlyLedgerRow;
 
 function DetailField({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -34,20 +21,29 @@ function DetailField({ label, value }: { label: string; value: string | null | u
   );
 }
 
+function TagBadge({ tag }: { tag: MonthlyLedgerRow["tag"] }) {
+  if (tag === "PLANNED") return <Badge color="amber">Planlanmış</Badge>;
+  if (tag === "CREDITED") return <Badge color="green">Hesaba geçti</Badge>;
+  return null;
+}
+
 export function CashbookPanel({
   side,
   month,
   rows,
   canWrite,
+  bookedTotal,
+  plannedTotal = 0,
 }: {
   side: "INCOME" | "EXPENSE";
   month: string;
   rows: CashbookRow[];
   canWrite: boolean;
+  bookedTotal: number;
+  plannedTotal?: number;
 }) {
   const [selected, setSelected] = useState<CashbookRow | null>(null);
   const isIncome = side === "INCOME";
-  const total = rows.reduce((s, r) => s + r.amount, 0);
 
   return (
     <>
@@ -65,13 +61,18 @@ export function CashbookPanel({
             {rows.map((row) => (
               <tr
                 key={row.id}
-                className="cursor-pointer border-b border-slate-300 bg-white hover:bg-brand-50/60"
+                className={`cursor-pointer border-b border-slate-300 hover:bg-brand-50/60 ${
+                  row.tag === "PLANNED" ? "bg-amber-50/40" : "bg-white"
+                }`}
                 onClick={() => setSelected(row)}
               >
                 <td className="px-4 py-2.5 text-sm font-medium text-slate-800">
-                  {cashbookTitle(row)}
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    {row.title}
+                    <TagBadge tag={row.tag} />
+                  </span>
                 </td>
-                <td className="td text-slate-600">{CASHBOOK_CHANNEL_TR[row.channel]}</td>
+                <td className="td text-slate-600">{row.channelLabel}</td>
                 <td className="td text-right font-medium">{fmtMoney(row.amount)}</td>
                 <td className="td text-slate-500">{fmtDate(row.occurredAt)}</td>
               </tr>
@@ -87,11 +88,20 @@ export function CashbookPanel({
           <tfoot>
             <tr className="border-t-[3px] border-slate-800 bg-slate-100 font-semibold">
               <td className="td" colSpan={2}>
-                {isIncome ? "Toplam gelir" : "Toplam gider"}
+                {isIncome ? "Toplam gelir (hesaba geçen)" : "Toplam gider"}
               </td>
-              <td className="td text-right">{fmtMoney(total)}</td>
+              <td className="td text-right">{fmtMoney(bookedTotal)}</td>
               <td className="td" />
             </tr>
+            {isIncome && plannedTotal > 0 ? (
+              <tr className="bg-amber-50/80 text-sm font-medium text-amber-900">
+                <td className="td" colSpan={2}>
+                  Planlanmış (henüz hesaba geçmedi)
+                </td>
+                <td className="td text-right">{fmtMoney(plannedTotal)}</td>
+                <td className="td" />
+              </tr>
+            ) : null}
           </tfoot>
         </table>
       </div>
@@ -114,7 +124,10 @@ export function CashbookPanel({
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {isIncome ? "Gelir detayı" : "Gider detayı"}
                 </p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900">{cashbookTitle(selected)}</h2>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">{selected.title}</h2>
+                <div className="mt-2">
+                  <TagBadge tag={selected.tag} />
+                </div>
               </div>
               <button
                 type="button"
@@ -149,7 +162,14 @@ export function CashbookPanel({
                   <DetailField label="Fatura no" value={selected.invoiceNo} />
                 </>
               )}
-              <DetailField label="Ödeme kanalı" value={CASHBOOK_CHANNEL_TR[selected.channel]} />
+              <DetailField
+                label="Ödeme kanalı"
+                value={
+                  selected.channel
+                    ? CASHBOOK_CHANNEL_TR[selected.channel]
+                    : selected.channelLabel
+                }
+              />
               <DetailField label="Banka" value={selected.bankName} />
               <DetailField
                 label="Çek vade sayısı"
@@ -161,8 +181,15 @@ export function CashbookPanel({
               <DetailField label="Tarih" value={fmtDate(selected.occurredAt)} />
               <DetailField label="Not" value={selected.notes} />
             </dl>
-            {canWrite ? (
-              <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+              {selected.href ? (
+                <Link href={selected.href} className="text-sm font-medium text-brand-700 hover:underline">
+                  Kaynağa git →
+                </Link>
+              ) : (
+                <span />
+              )}
+              {canWrite && selected.deletable ? (
                 <MiniForm action={deleteCashbookEntryAction}>
                   <input type="hidden" name="id" value={selected.id} />
                   <input type="hidden" name="yearMonth" value={month} />
@@ -174,8 +201,8 @@ export function CashbookPanel({
                     Kaydı sil
                   </button>
                 </MiniForm>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}

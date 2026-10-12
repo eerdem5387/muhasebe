@@ -1,49 +1,14 @@
 import { requireAuth, canManageOperations } from "@/lib/context";
 import { PageHeader } from "@/components/page-header";
 import { fmtMoney, fmtMonthUpper, toYearMonth } from "@/lib/format";
+import { bookedTotal, loadMonthlyLedger, plannedTotal } from "@/server/monthly-ledger";
 import { MonthToolbar } from "./month-toolbar";
 import { IncomeAddModal, ExpenseAddModal } from "./entry-form";
-import { CashbookPanel, type CashbookRow } from "./cashbook-panel";
+import { CashbookPanel } from "./cashbook-panel";
 
 function parseMonth(raw: string | undefined): string {
   if (raw && /^\d{4}-\d{2}$/.test(raw)) return raw;
   return toYearMonth(new Date());
-}
-
-function toRow(entry: {
-  id: string;
-  side: "INCOME" | "EXPENSE";
-  amount: { toString(): string } | number;
-  occurredAt: Date;
-  channel: CashbookRow["channel"];
-  bankName: string | null;
-  checkInstallments: number | null;
-  incomeCategory: CashbookRow["incomeCategory"];
-  payerFirstName: string | null;
-  payerLastName: string | null;
-  payerIdentityNo: string | null;
-  expenseTitle: string | null;
-  payeeIdentityNo: string | null;
-  invoiceNo: string | null;
-  notes: string | null;
-}): CashbookRow {
-  return {
-    id: entry.id,
-    side: entry.side,
-    amount: Number(entry.amount),
-    occurredAt: entry.occurredAt.toISOString(),
-    channel: entry.channel,
-    bankName: entry.bankName,
-    checkInstallments: entry.checkInstallments,
-    incomeCategory: entry.incomeCategory,
-    payerFirstName: entry.payerFirstName,
-    payerLastName: entry.payerLastName,
-    payerIdentityNo: entry.payerIdentityNo,
-    expenseTitle: entry.expenseTitle,
-    payeeIdentityNo: entry.payeeIdentityNo,
-    invoiceNo: entry.invoiceNo,
-    notes: entry.notes,
-  };
 }
 
 export default async function MonthlyReportPage({
@@ -55,23 +20,18 @@ export default async function MonthlyReportPage({
   const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const month = parseMonth((await searchParams).month);
 
-  const entries = await ctx.db.cashbookEntry.findMany({
-    where: { yearMonth: month },
-    orderBy: [{ occurredAt: "asc" }, { createdAt: "asc" }],
-  });
-
-  const incomeRows = entries.filter((e) => e.side === "INCOME").map(toRow);
-  const expenseRows = entries.filter((e) => e.side === "EXPENSE").map(toRow);
-  const incomeTotal = incomeRows.reduce((s, r) => s + r.amount, 0);
-  const expenseTotal = expenseRows.reduce((s, r) => s + r.amount, 0);
-  const net = incomeTotal - expenseTotal;
+  const { incomeRows, expenseRows } = await loadMonthlyLedger(ctx.db, month);
+  const incomeBooked = bookedTotal(incomeRows);
+  const incomePlanned = plannedTotal(incomeRows);
+  const expenseBooked = bookedTotal(expenseRows);
+  const net = incomeBooked - expenseBooked;
 
   return (
     <div>
       <div className="print:hidden">
         <PageHeader
           title="Aylık gelir-gider"
-          description="Gelir ve giderleri buradan kaydedin (Gider ekle). Satıra tıklayarak detayı açabilirsiniz."
+          description="Elle eklenen kalemler normal görünür. Öğrenci / gelir planından gelenler Planlanmış veya Hesaba geçti etiketi alır."
           actions={<MonthToolbar month={month} />}
         />
       </div>
@@ -94,7 +54,14 @@ export default async function MonthlyReportPage({
                 </div>
               ) : null}
             </div>
-            <CashbookPanel side="INCOME" month={month} rows={incomeRows} canWrite={canWrite} />
+            <CashbookPanel
+              side="INCOME"
+              month={month}
+              rows={incomeRows}
+              canWrite={canWrite}
+              bookedTotal={incomeBooked}
+              plannedTotal={incomePlanned}
+            />
           </section>
 
           <section>
@@ -106,7 +73,13 @@ export default async function MonthlyReportPage({
                 </div>
               ) : null}
             </div>
-            <CashbookPanel side="EXPENSE" month={month} rows={expenseRows} canWrite={canWrite} />
+            <CashbookPanel
+              side="EXPENSE"
+              month={month}
+              rows={expenseRows}
+              canWrite={canWrite}
+              bookedTotal={expenseBooked}
+            />
           </section>
         </div>
 
@@ -115,7 +88,12 @@ export default async function MonthlyReportPage({
             net >= 0 ? "text-emerald-700" : "text-red-700"
           }`}
         >
-          Net (gelir − gider): {fmtMoney(net)}
+          Net (hesaba geçen gelir − gider): {fmtMoney(net)}
+          {incomePlanned > 0 ? (
+            <span className="mt-1 block text-xs font-medium text-amber-800">
+              + Planlanmış gelir: {fmtMoney(incomePlanned)}
+            </span>
+          ) : null}
         </div>
       </div>
     </div>
