@@ -201,6 +201,7 @@ model Enrollment {
   cardBank           CardBankSetting?     @relation(fields: [cardBankId], references: [id], onDelete: SetNull)
   scheduleLines      IncomeScheduleLine[]
   collections        Collection[]
+  incomePlans        IncomePlan[]
 
   @@unique([tenantId, externalId])
   @@index([tenantId])
@@ -276,8 +277,9 @@ model IncomePlan {
   createdById      String
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category         IncomePlanCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  enrollment       Enrollment?        @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
   lines            IncomePlanLine[]
 
   @@index([tenantId])
