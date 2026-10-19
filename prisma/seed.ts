@@ -20,7 +20,7 @@ async function upsertUser(email: string, name: string, isSuperAdmin = false, pas
 async function main() {
   const tenant =
     (await prisma.tenant.findFirst({ orderBy: { createdAt: "asc" } })) ??
-    (await prisma.tenant.create({ data: { name: "Demo Okul" } }));
+    (await prisma.tenant.create({ data: { name: "Levent Koleji" } }));
 
   const users = [
     { email: "superadmin@okul.test", name: "Süper Admin", role: "ADMIN" as const, isSuperAdmin: true },

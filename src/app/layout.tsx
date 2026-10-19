@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Okul Muhasebe",
-  description: "Okul kayıt ücreti, tahsilat ve gider onay sistemi.",
+  title: "Levent Koleji Muhasebe",
+  description: "Levent Koleji kayıt ücreti, tahsilat ve gider onay sistemi.",
   icons: {
     icon: [
       { url: "/favicon.ico" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/logo.png", type: "image/png" },
     ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

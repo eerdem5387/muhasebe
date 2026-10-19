@@ -27,9 +27,15 @@ async function upsertUser(
 }
 
 async function main() {
-  const tenant =
-    (await prisma.tenant.findFirst({ orderBy: { createdAt: "asc" } })) ??
-    (await prisma.tenant.create({ data: { name: "Demo Okul" } }));
+  let tenant = await prisma.tenant.findFirst({ orderBy: { createdAt: "asc" } });
+  if (!tenant) {
+    tenant = await prisma.tenant.create({ data: { name: "Levent Koleji" } });
+  } else if (tenant.name === "Demo Okul" || !tenant.name.trim()) {
+    tenant = await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: { name: "Levent Koleji" },
+    });
+  }
 
   const demo = await upsertUser("demo@muhasebe.test", "Okul Yöneticisi", true, DEMO_PASSWORD);
   await prisma.tenantUser.upsert({

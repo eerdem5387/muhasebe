@@ -13,9 +13,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 to-slate-100 px-4">
       <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-slate-900">Okul Muhasebe</h1>
-          <p className="mt-1 text-sm text-slate-500">Kayıt ücreti · Tahsilat · Gider onayı</p>
+        <div className="mb-6 flex flex-col items-center text-center">
+          <img src="/logo.png" alt="Levent Koleji" width={128} height={128} className="h-16 w-auto object-contain" />
+          <p className="mt-3 text-sm text-slate-500">Kayıt ücreti · Tahsilat · Gider onayı</p>
         </div>
         <form action={action} className="card space-y-4 p-6">
           <h2 className="text-lg font-semibold text-slate-800">Giriş yap</h2>

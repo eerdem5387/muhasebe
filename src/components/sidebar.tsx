@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
@@ -38,11 +39,21 @@ export function Sidebar({ showSettings = false }: { showSettings?: boolean }) {
           open ? "fixed inset-y-0 left-0 w-64 lg:static lg:block" : "hidden",
         )}
       >
-        <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
-            O
-          </div>
-          <span className="text-lg font-semibold text-slate-800">Okul Muhasebe</span>
+        <div className="flex h-16 items-center border-b border-slate-200 px-4">
+          <Link href="/" className="flex items-center" onClick={() => {
+            if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+              setOpen(false);
+            }
+          }}>
+            <Image
+              src="/logo.png"
+              alt="Levent Koleji"
+              width={160}
+              height={40}
+              className="h-10 w-auto object-contain"
+              priority
+            />
+          </Link>
         </div>
         <nav className="space-y-6 p-4">
           {groups.map((group) => (
