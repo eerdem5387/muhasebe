@@ -1,0 +1,5 @@
+DO $$ BEGIN ALTER TYPE "RequestChannel" ADD VALUE 'BANK'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE "RequestChannel" ADD VALUE 'CHECK'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE "RequestChannel" ADD VALUE 'CASH'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE "RequestChannel" ADD VALUE 'PROMISSORY'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE "RequestStatus" ADD VALUE 'COMPLETED'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;

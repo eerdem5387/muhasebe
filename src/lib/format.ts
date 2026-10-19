@@ -91,10 +91,12 @@ export function resolveActiveAcademicYear(years: string[], now = new Date()): st
 
 export const CHANNEL_TR: Record<string, string> = {
   EFT: "EFT / Havale",
+  BANK: "Banka",
   CREDIT_CARD: "Kredi kartı",
   CHECK: "Çek",
   CASH: "Nakit",
-  TRANSFER: "Para transferi",
+  PROMISSORY: "Senet",
+  TRANSFER: "Banka",
 };
 
 export const ROLE_TR: Record<string, string> = {
@@ -111,8 +113,9 @@ export const STATUS_TR: Record<string, string> = {
   REALIZED: "Gerçekleşen",
   ACTIVE: "Aktif",
   CANCELLED: "İptal",
-  PENDING: "Onay bekliyor",
-  APPROVED: "Onaylandı",
+  PENDING: "Kurucu onayı bekliyor",
+  APPROVED: "Onaylandı — tutar bekleniyor",
+  COMPLETED: "Tamamlandı",
   REJECTED: "Reddedildi",
 };
 

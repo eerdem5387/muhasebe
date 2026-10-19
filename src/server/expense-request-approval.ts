@@ -1,10 +1,19 @@
 import "server-only";
+import { Prisma } from "@prisma/client";
 import { prisma, getTenantDb } from "@/lib/prisma";
+import { toYearMonth } from "@/lib/format";
 import {
   pushFinanceEventToOkul,
   serializeCashbookEntry,
   serializeExpenseRequest,
 } from "@/server/okul-webhook";
+
+/** RequestChannel → CashbookChannel (kasa defterinde sınırlı kanal seti). */
+function toCashbookChannel(channel: string): "CASH" | "CREDIT_CARD" | "CHECK" {
+  if (channel === "CREDIT_CARD") return "CREDIT_CARD";
+  if (channel === "CHECK" || channel === "PROMISSORY") return "CHECK";
+  return "CASH";
+}
 
 export async function applyExpenseRequestApproval(input: {
   tenantId: string;
@@ -21,30 +30,27 @@ export async function applyExpenseRequestApproval(input: {
   }
 
   const now = input.approvedAt ?? new Date();
-  let principalApprovedAt = req.principalApprovedAt;
-  let principalApprovedBy = req.principalApprovedBy;
-  let founderApprovedAt = req.founderApprovedAt;
-  let founderApprovedBy = req.founderApprovedBy;
 
-  if (input.as === "principal") {
-    principalApprovedAt = now;
-    principalApprovedBy = input.actorId;
+  // Yeni senaryo: yalnızca kurucu onayı yeterlidir.
+  if (input.as === "founder") {
+    await db.expenseRequest.updateMany({
+      where: { id: input.requestId, status: "PENDING" },
+      data: {
+        founderApprovedAt: now,
+        founderApprovedBy: input.actorId,
+        status: "APPROVED",
+      },
+    });
   } else {
-    founderApprovedAt = now;
-    founderApprovedBy = input.actorId;
+    // Geriye dönük müdür kaydı (tek başına onaylamaz)
+    await db.expenseRequest.updateMany({
+      where: { id: input.requestId, status: "PENDING" },
+      data: {
+        principalApprovedAt: now,
+        principalApprovedBy: input.actorId,
+      },
+    });
   }
-
-  const both = Boolean(principalApprovedAt && founderApprovedAt);
-  await db.expenseRequest.updateMany({
-    where: { id: input.requestId },
-    data: {
-      principalApprovedAt,
-      principalApprovedBy,
-      founderApprovedAt,
-      founderApprovedBy,
-      status: both ? "APPROVED" : "PENDING",
-    },
-  });
 
   const updated = await db.expenseRequest.findFirst({ where: { id: input.requestId } });
   if (updated) {
@@ -90,6 +96,70 @@ export async function applyExpenseRequestRejection(input: {
     );
   }
   return { ok: true as const, request: updated };
+}
+
+/** Muhasebeci tutarı girip harcamayı tamamlar; aylık kasaya gider yazar. */
+export async function completeExpenseRequest(input: {
+  tenantId: string;
+  requestId: string;
+  actorId: string;
+  amount: number;
+  occurredAt: Date;
+}) {
+  const db = getTenantDb(input.tenantId);
+  const req = await db.expenseRequest.findFirst({ where: { id: input.requestId } });
+  if (!req) return { ok: false as const, error: "Talep bulunamadı.", status: 404 };
+  if (req.status !== "APPROVED") {
+    return { ok: false as const, error: "Yalnızca kurucu onaylı talepler tamamlanabilir.", status: 409 };
+  }
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    return { ok: false as const, error: "Geçerli bir tutar girin.", status: 400 };
+  }
+
+  const now = new Date();
+  const yearMonth = toYearMonth(input.occurredAt);
+  const amount = new Prisma.Decimal(input.amount.toFixed(2));
+
+  await db.expenseRequest.updateMany({
+    where: { id: input.requestId, status: "APPROVED" },
+    data: {
+      total: amount,
+      status: "COMPLETED",
+      completedAt: now,
+      completedById: input.actorId,
+    },
+  });
+
+  const cashbook = await db.cashbookEntry.create({
+    data: {
+      tenantId: input.tenantId,
+      side: "EXPENSE",
+      yearMonth,
+      amount,
+      occurredAt: input.occurredAt,
+      channel: toCashbookChannel(req.channel),
+      expenseTitle: req.title,
+      notes: [req.notes, `Talep: ${req.requesterName}`, `Kanal: ${req.channel}`]
+        .filter(Boolean)
+        .join(" · "),
+    },
+  });
+
+  const updated = await db.expenseRequest.findFirst({ where: { id: input.requestId } });
+  if (updated) {
+    await pushFinanceEventToOkul(
+      "expense_request.upserted",
+      input.tenantId,
+      serializeExpenseRequest(updated),
+    );
+  }
+  await pushFinanceEventToOkul(
+    "cashbook_entry.upserted",
+    input.tenantId,
+    serializeCashbookEntry(cashbook),
+  );
+
+  return { ok: true as const, request: updated, cashbook };
 }
 
 /** Full snapshot for okul backfill / reconcile. */

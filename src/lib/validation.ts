@@ -84,22 +84,28 @@ export const incomePlanSchema = z.object({
   notes: opt,
 });
 
+export const requestChannelSchema = z.enum(["BANK", "CHECK", "CREDIT_CARD", "CASH", "PROMISSORY"]);
+
 export const expenseSchema = z.object({
   categoryId: z.string().trim().min(1, "Gider kalemi seçin."),
   amount: decimalString,
   spentAt: z.string().trim().min(1, "Tarih gerekli."),
-  channel: z.enum(["CREDIT_CARD", "TRANSFER"]).optional().or(z.literal("")),
+  channel: requestChannelSchema.optional().or(z.literal("")),
   notes: opt,
   requestId: opt,
 });
 
 export const expenseRequestSchema = z.object({
-  title: z.string().trim().min(3, "Talep adı gerekli."),
-  quantity: decimalString,
-  unitPrice: decimalString,
+  title: z.string().trim().min(3, "Harcama kalemi gerekli."),
   requesterName: z.string().trim().min(2, "Talep eden adı gerekli."),
-  channel: z.enum(["CREDIT_CARD", "TRANSFER"]),
+  channel: requestChannelSchema,
   notes: opt,
+});
+
+export const completeExpenseRequestSchema = z.object({
+  id: z.string().trim().min(1),
+  amount: decimalString,
+  occurredAt: z.string().trim().min(1, "Harcama tarihi gerekli."),
 });
 
 export const reportEntrySchema = z.object({

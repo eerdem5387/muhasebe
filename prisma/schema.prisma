@@ -22,7 +22,12 @@ enum PaymentChannel {
 }
 
 enum RequestChannel {
+  BANK
+  CHECK
   CREDIT_CARD
+  CASH
+  PROMISSORY
+  /// @deprecated eski kayıtlar
   TRANSFER
 }
 
@@ -57,6 +62,7 @@ enum PaymentProgress {
 enum RequestStatus {
   PENDING
   APPROVED
+  COMPLETED
   REJECTED
 }
 
@@ -322,19 +328,22 @@ model LedgerCategory {
 model ExpenseRequest {
   id                  String         @id @default(cuid())
   tenantId            String
+  /// Harcama kalemi
   title               String
-  quantity            Decimal        @db.Decimal(18, 4)
-  unitPrice           Decimal        @db.Decimal(18, 2)
-  total               Decimal        @db.Decimal(18, 2)
+  /// Kurucu onayından sonra muhasebeci girer; oluştururken boş olabilir.
+  total               Decimal?       @db.Decimal(18, 2)
   requesterName       String
   channel             RequestChannel
   status              RequestStatus  @default(PENDING)
+  /// Açıklama
   notes               String?
   createdById         String
   principalApprovedAt DateTime?
   principalApprovedBy String?
   founderApprovedAt   DateTime?
   founderApprovedBy   String?
+  completedAt         DateTime?
+  completedById       String?
   rejectedAt          DateTime?
   rejectedById        String?
   rejectReason        String?

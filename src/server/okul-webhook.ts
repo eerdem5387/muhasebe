@@ -75,9 +75,7 @@ export function serializeExpenseRequest(row: {
   id: string;
   tenantId: string;
   title: string;
-  quantity: { toString(): string } | number;
-  unitPrice: { toString(): string } | number;
-  total: { toString(): string } | number;
+  total: { toString(): string } | number | null;
   requesterName: string;
   channel: string;
   status: string;
@@ -87,6 +85,8 @@ export function serializeExpenseRequest(row: {
   principalApprovedBy: string | null;
   founderApprovedAt: Date | null;
   founderApprovedBy: string | null;
+  completedAt?: Date | null;
+  completedById?: string | null;
   rejectedAt: Date | null;
   rejectedById: string | null;
   rejectReason: string | null;
@@ -96,9 +96,9 @@ export function serializeExpenseRequest(row: {
   return {
     id: row.id,
     title: row.title,
-    quantity: String(row.quantity),
-    unitPrice: String(row.unitPrice),
-    total: String(row.total),
+    total: row.total == null ? null : String(row.total),
+    quantity: null,
+    unitPrice: null,
     requesterName: row.requesterName,
     channel: row.channel,
     status: row.status,
@@ -108,6 +108,8 @@ export function serializeExpenseRequest(row: {
     principalApprovedBy: row.principalApprovedBy,
     founderApprovedAt: row.founderApprovedAt?.toISOString() ?? null,
     founderApprovedBy: row.founderApprovedBy,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    completedById: row.completedById ?? null,
     rejectedAt: row.rejectedAt?.toISOString() ?? null,
     rejectedById: row.rejectedById,
     rejectReason: row.rejectReason,

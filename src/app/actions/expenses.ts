@@ -2,13 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
-import { requireAuth, requireOperations, canApproveAsPrincipal } from "@/lib/context";
-import { expenseRequestSchema, expenseSchema } from "@/lib/validation";
+import { requireAuth, requireOperations, canApproveAsPrincipal, canManageOperations } from "@/lib/context";
+import {
+  completeExpenseRequestSchema,
+  expenseRequestSchema,
+  expenseSchema,
+} from "@/lib/validation";
 import { ForbiddenError, toErrorMessage } from "@/lib/errors";
 import { requireUpload } from "@/server/uploads";
 import {
   applyExpenseRequestApproval,
   applyExpenseRequestRejection,
+  completeExpenseRequest,
 } from "@/server/expense-request-approval";
 import {
   pushFinanceEventToOkul,
@@ -39,12 +44,21 @@ export async function createExpenseAction(
 
     if (parsed.data.requestId) {
       const req = await ctx.db.expenseRequest.findFirst({ where: { id: parsed.data.requestId } });
-      if (!req || req.status !== "APPROVED") {
+      if (!req || (req.status !== "APPROVED" && req.status !== "COMPLETED")) {
         return { error: "Yalnızca onaylanmış talepler için gider kaydı açılabilir." };
       }
     }
 
     const upload = await requireUpload(formData);
+    const channel = parsed.data.channel;
+    const requestChannel =
+      channel === "BANK" ||
+      channel === "CHECK" ||
+      channel === "CREDIT_CARD" ||
+      channel === "CASH" ||
+      channel === "PROMISSORY"
+        ? channel
+        : null;
 
     await ctx.db.expense.create({
       data: {
@@ -53,9 +67,7 @@ export async function createExpenseAction(
         requestId: parsed.data.requestId || null,
         amount: new Prisma.Decimal(parsed.data.amount),
         spentAt: new Date(`${parsed.data.spentAt}T12:00:00`),
-        channel: parsed.data.channel === "CREDIT_CARD" || parsed.data.channel === "TRANSFER"
-          ? parsed.data.channel
-          : null,
+        channel: requestChannel,
         notes: parsed.data.notes || null,
         attachments: {
           create: {
@@ -83,15 +95,11 @@ export async function createExpenseRequestAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
   try {
     const ctx = await requireOperations();
-    const qty = new Prisma.Decimal(parsed.data.quantity);
-    const unit = new Prisma.Decimal(parsed.data.unitPrice);
     const created = await ctx.db.expenseRequest.create({
       data: {
         tenantId: ctx.tenantId,
         title: parsed.data.title,
-        quantity: qty,
-        unitPrice: unit,
-        total: qty.mul(unit).toDecimalPlaces(2),
+        total: null,
         requesterName: parsed.data.requesterName,
         channel: parsed.data.channel,
         notes: parsed.data.notes || null,
@@ -107,10 +115,39 @@ export async function createExpenseRequestAction(
     return { error: toErrorMessage(err) };
   }
   revalidatePath("/requests");
-  return { success: "Talep gönderildi. Müdür onayı (muhasebe) ve kurucu onayı (okul paneli) bekleniyor." };
+  return { success: "Talep gönderildi. Kurucu onayı (okul paneli) bekleniyor." };
 }
 
-/** Müdür onayı — kurucu onayı okul-yonetim panelinden gelir. */
+export async function completeExpenseRequestAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = completeExpenseRequestSchema.safeParse({
+    id: formData.get("id"),
+    amount: formData.get("amount"),
+    occurredAt: formData.get("occurredAt"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
+
+  try {
+    const ctx = await requireOperations();
+    const result = await completeExpenseRequest({
+      tenantId: ctx.tenantId,
+      requestId: parsed.data.id,
+      actorId: ctx.userId,
+      amount: Number(parsed.data.amount),
+      occurredAt: new Date(`${parsed.data.occurredAt}T12:00:00`),
+    });
+    if (!result.ok) return { error: result.error };
+  } catch (err) {
+    return { error: toErrorMessage(err) };
+  }
+  revalidatePath("/requests");
+  revalidatePath("/monthly");
+  return { success: "Harcama tutarı kaydedildi ve talep tamamlandı." };
+}
+
+/** Müdür kaydı (opsiyonel; kurucu onayı asıl karardır). */
 export async function approveRequestAction(formData: FormData): Promise<void> {
   const ctx = await requireAuth();
   const id = String(formData.get("id") ?? "");
@@ -131,7 +168,7 @@ export async function approveRequestAction(formData: FormData): Promise<void> {
 export async function rejectRequestAction(formData: FormData): Promise<void> {
   const ctx = await requireAuth();
   const id = String(formData.get("id") ?? "");
-  if (!canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin)) {
+  if (!canApproveAsPrincipal(ctx.role, ctx.isSuperAdmin) && !canManageOperations(ctx.role, ctx.isSuperAdmin)) {
     throw new ForbiddenError();
   }
   await applyExpenseRequestRejection({
