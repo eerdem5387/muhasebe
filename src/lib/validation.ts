@@ -72,12 +72,22 @@ export const incomePlanCategorySchema = z.object({
     .transform((v) => v === "true" || v === "on"),
 });
 
+export const incomePlanChannelSchema = z.enum([
+  "EFT",
+  "CREDIT_CARD",
+  "CHECK",
+  "CASH",
+  "ECOM_ZIRAAT",
+  "ECOM_ZIRAAT_2X",
+  "ECOM_OTHER_BANKS",
+]);
+
 export const incomePlanSchema = z.object({
   categoryId: z.string().trim().min(1, "Gelir kalemi seçin."),
   enrollmentId: opt,
   amount: decimalString,
   planDate: z.string().trim().min(1, "Tarih gerekli."),
-  paymentChannel: z.enum(["EFT", "CREDIT_CARD", "CHECK", "CASH"]),
+  paymentChannel: incomePlanChannelSchema,
   installmentCount: z.coerce.number().int().min(1).max(48).default(1),
   blockDays: z.coerce.number().int().min(0).max(365).default(0),
   bankName: opt,

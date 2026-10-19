@@ -3,6 +3,14 @@ import { toYearMonth } from "@/lib/format";
 
 export const INSTALLMENT_INTERVAL_DAYS = 30;
 
+export {
+  ECOM_CHANNELS,
+  isEcommerceEligibleCategory,
+  isEcomChannel,
+  resolveEcomPlanRules,
+  type EcomChannel,
+} from "@/lib/ecommerce-channels";
+
 export interface ScheduleDraft {
   installmentIndex: number;
   amount: Prisma.Decimal;
@@ -44,6 +52,55 @@ export function buildIncomeSchedule(input: {
     });
   }
   return lines;
+}
+
+/**
+ * E-Ticaret Ziraat 2 Taksit: tutarın yarısı +28 gün, diğer yarısı +56 gün.
+ * Diğer e-ticaret kanalları: tek satır, ilgili bloke günü.
+ */
+export function buildPlanSchedule(input: {
+  amount: Prisma.Decimal.Value;
+  paymentDate: Date;
+  paymentChannel: string;
+  installmentCount: number;
+  blockDays: number;
+}): ScheduleDraft[] {
+  if (input.paymentChannel === "ECOM_ZIRAAT_2X") {
+    const fee = new Prisma.Decimal(input.amount);
+    const first = fee.div(2).toDecimalPlaces(2);
+    const second = fee.minus(first);
+    const d1 = addDays(input.paymentDate, 28);
+    const d2 = addDays(input.paymentDate, 56);
+    return [
+      { installmentIndex: 1, amount: first, releaseDate: d1, yearMonth: toYearMonth(d1) },
+      { installmentIndex: 2, amount: second, releaseDate: d2, yearMonth: toYearMonth(d2) },
+    ];
+  }
+
+  if (input.paymentChannel === "ECOM_ZIRAAT") {
+    return buildIncomeSchedule({
+      annualFee: input.amount,
+      installmentCount: 1,
+      paymentDate: input.paymentDate,
+      blockDays: 28,
+    });
+  }
+
+  if (input.paymentChannel === "ECOM_OTHER_BANKS") {
+    return buildIncomeSchedule({
+      annualFee: input.amount,
+      installmentCount: 1,
+      paymentDate: input.paymentDate,
+      blockDays: 39,
+    });
+  }
+
+  return buildIncomeSchedule({
+    annualFee: input.amount,
+    installmentCount: input.installmentCount,
+    paymentDate: input.paymentDate,
+    blockDays: input.blockDays,
+  });
 }
 
 export function scheduleStatus(releaseDate: Date, hasCollection: boolean, now = new Date()): "BLOCKED" | "EXPECTED" | "REALIZED" {

@@ -8,8 +8,15 @@ import {
 } from "@/lib/context";
 import { incomePlanCategorySchema, incomePlanSchema } from "@/lib/validation";
 import { toErrorMessage } from "@/lib/errors";
-import { buildIncomeSchedule, scheduleStatus } from "@/server/income-schedule";
+import {
+  buildPlanSchedule,
+  isEcommerceEligibleCategory,
+  isEcomChannel,
+  resolveEcomPlanRules,
+  scheduleStatus,
+} from "@/server/income-schedule";
 import type { ActionState } from "./types";
+import type { PaymentChannel } from "@prisma/client";
 
 function revalidateIncome() {
   revalidatePath("/collections");
@@ -85,9 +92,29 @@ export async function createIncomePlanAction(
 
     let amount = new Prisma.Decimal(data.amount);
     let enrollmentId: string | null = data.enrollmentId || null;
+    let paymentChannel = data.paymentChannel as PaymentChannel;
+    let installmentCount = data.installmentCount;
+    let blockDays = data.blockDays;
+    let bankName = data.bankName?.trim() || null;
+
+    const ecomOk = isEcommerceEligibleCategory(category.name);
+    if (isEcomChannel(paymentChannel)) {
+      if (!ecomOk) {
+        return { error: "E-ticaret kanalları yalnızca Kitap / Araç servis geliri için kullanılabilir." };
+      }
+      const rules = resolveEcomPlanRules(paymentChannel);
+      installmentCount = rules.installmentCount;
+      blockDays = rules.blockDays;
+      bankName = rules.bankName;
+    }
+
+    const planDate = new Date(`${data.planDate}T12:00:00`);
 
     if (category.requiresStudent) {
       if (!enrollmentId) return { error: "Öğrenci geliri için öğrenci seçin." };
+      if (isEcomChannel(paymentChannel)) {
+        return { error: "Öğrenci gelirinde e-ticaret kanalı kullanılamaz." };
+      }
       const enrollment = await ctx.db.enrollment.findFirst({
         where: { id: enrollmentId, status: "ACTIVE" },
         include: { student: { select: { fullName: true } } },
@@ -104,18 +131,19 @@ export async function createIncomePlanAction(
       await ctx.db.enrollment.update({
         where: { id: enrollment.id },
         data: {
-          paymentChannel: data.paymentChannel,
-          installmentCount: data.installmentCount,
+          paymentChannel,
+          installmentCount,
         },
       });
 
       // Enrollment schedule (öğrenci detay / eski plan uyumu)
       await ctx.db.incomeScheduleLine.deleteMany({ where: { enrollmentId: enrollment.id } });
-      const enrollmentDrafts = buildIncomeSchedule({
-        annualFee: amount,
-        installmentCount: data.installmentCount,
-        paymentDate: new Date(`${data.planDate}T12:00:00`),
-        blockDays: data.blockDays,
+      const enrollmentDrafts = buildPlanSchedule({
+        amount,
+        paymentDate: planDate,
+        paymentChannel,
+        installmentCount,
+        blockDays,
       });
       await ctx.db.incomeScheduleLine.createMany({
         data: enrollmentDrafts.map((line) => ({
@@ -126,7 +154,7 @@ export async function createIncomePlanAction(
           releaseDate: line.releaseDate,
           yearMonth: line.yearMonth,
           status: scheduleStatus(line.releaseDate, false),
-          plannedChannel: data.paymentChannel,
+          plannedChannel: paymentChannel,
         })),
       });
     } else {
@@ -134,11 +162,12 @@ export async function createIncomePlanAction(
       if (amount.lte(0)) return { error: "Tutar 0’dan büyük olmalı." };
     }
 
-    const drafts = buildIncomeSchedule({
-      annualFee: amount,
-      installmentCount: data.installmentCount,
-      paymentDate: new Date(`${data.planDate}T12:00:00`),
-      blockDays: data.blockDays,
+    const drafts = buildPlanSchedule({
+      amount,
+      paymentDate: planDate,
+      paymentChannel,
+      installmentCount,
+      blockDays,
     });
 
     await ctx.db.incomePlan.create({
@@ -147,11 +176,11 @@ export async function createIncomePlanAction(
         categoryId: category.id,
         enrollmentId,
         amount,
-        paymentChannel: data.paymentChannel,
-        installmentCount: data.installmentCount,
-        blockDays: data.blockDays,
-        bankName: data.bankName?.trim() || null,
-        planDate: new Date(`${data.planDate}T12:00:00`),
+        paymentChannel,
+        installmentCount,
+        blockDays,
+        bankName,
+        planDate,
         notes: data.notes || null,
         createdById: ctx.userId,
         lines: {

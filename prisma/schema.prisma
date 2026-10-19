@@ -19,6 +19,10 @@ enum PaymentChannel {
   CREDIT_CARD
   CHECK
   CASH
+  /// Kitap / araç servis e-ticaret kanalları
+  ECOM_ZIRAAT
+  ECOM_ZIRAAT_2X
+  ECOM_OTHER_BANKS
 }
 
 enum RequestChannel {

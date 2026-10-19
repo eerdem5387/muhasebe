@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActionForm } from "@/components/action-form";
 import { FormModal } from "@/components/form-modal";
 import {
@@ -8,6 +8,7 @@ import {
   createIncomePlanCategoryAction,
 } from "@/app/actions/income-plans";
 import { CHANNEL_TR, todayISO, fmtMoney } from "@/lib/format";
+import { isEcommerceEligibleCategory, isEcomChannel, resolveEcomPlanRules } from "@/lib/ecommerce-channels";
 
 export type PlanCategoryOption = {
   id: string;
@@ -25,6 +26,19 @@ export type PlanStudentOption = {
   sourcePaymentPlan: string | null;
 };
 
+const BASE_CHANNELS = [
+  { value: "CREDIT_CARD", label: "Kredi kartı" },
+  { value: "EFT", label: "EFT / Havale" },
+  { value: "CHECK", label: "Çek" },
+  { value: "CASH", label: "Nakit" },
+] as const;
+
+const ECOM_CHANNEL_OPTIONS = [
+  { value: "ECOM_ZIRAAT", label: "E-Ticaret Ziraat" },
+  { value: "ECOM_ZIRAAT_2X", label: "E-Ticaret Ziraat 2 Taksit" },
+  { value: "ECOM_OTHER_BANKS", label: "E-Ticaret Diğer Bankalar" },
+] as const;
+
 export function IncomePlanCreateModal({
   categories,
   students,
@@ -39,9 +53,12 @@ export function IncomePlanCreateModal({
   const [enrollmentId, setEnrollmentId] = useState("");
   const [channel, setChannel] = useState("CREDIT_CARD");
   const [installments, setInstallments] = useState(10);
+  const [blockDays, setBlockDays] = useState(30);
 
   const category = categories.find((c) => c.id === categoryId);
   const requiresStudent = Boolean(category?.requiresStudent);
+  const ecomEligible = category ? isEcommerceEligibleCategory(category.name) && !requiresStudent : false;
+  const ecomMode = ecomEligible && isEcomChannel(channel);
   const selected = students.find((s) => s.enrollmentId === enrollmentId);
 
   const filteredStudents = useMemo(() => {
@@ -58,6 +75,29 @@ export function IncomePlanCreateModal({
   }, [students, studentQuery]);
 
   const lockedAmount = selected?.annualFee ?? 0;
+
+  useEffect(() => {
+    if (!ecomEligible && isEcomChannel(channel)) {
+      setChannel("CREDIT_CARD");
+      setInstallments(10);
+      setBlockDays(30);
+      return;
+    }
+    if (isEcomChannel(channel)) {
+      const rules = resolveEcomPlanRules(channel);
+      setInstallments(rules.installmentCount);
+      setBlockDays(rules.blockDays);
+    }
+  }, [categoryId, ecomEligible, channel]);
+
+  const ecomHint =
+    channel === "ECOM_ZIRAAT"
+      ? "28 gün bloke · tutarın tamamı tek seferde planlanır."
+      : channel === "ECOM_ZIRAAT_2X"
+        ? "Tutar ikiye bölünür: yarısı +28 gün, diğer yarısı +56 gün."
+        : channel === "ECOM_OTHER_BANKS"
+          ? "39 gün bloke · tutarın tamamı tek seferde planlanır."
+          : null;
 
   return (
     <FormModal buttonLabel="Gelir planı ekle" title="Gelir planı oluştur" size="lg">
@@ -176,11 +216,16 @@ export function IncomePlanCreateModal({
               value={channel}
               onChange={(e) => setChannel(e.target.value)}
             >
-              <option value="CREDIT_CARD">Kredi kartı</option>
-              <option value="EFT">EFT / Havale</option>
-              <option value="CHECK">Çek</option>
-              <option value="CASH">Nakit</option>
+              {BASE_CHANNELS.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+              {ecomEligible
+                ? ECOM_CHANNEL_OPTIONS.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))
+                : null}
             </select>
+            {ecomHint ? <p className="mt-1 text-xs text-brand-700">{ecomHint}</p> : null}
           </div>
         </div>
 
@@ -197,15 +242,37 @@ export function IncomePlanCreateModal({
               value={installments}
               onChange={(e) => setInstallments(Number(e.target.value) || 1)}
               required
+              readOnly={ecomMode}
             />
           </div>
           <div>
             <label className="label" htmlFor="blockDays">Bloke (gün)</label>
-            <input id="blockDays" name="blockDays" type="number" min={0} max={365} className="input" defaultValue={channel === "CREDIT_CARD" ? 30 : 0} />
+            <input
+              id="blockDays"
+              name="blockDays"
+              type="number"
+              min={0}
+              max={365}
+              className="input"
+              value={blockDays}
+              onChange={(e) => setBlockDays(Number(e.target.value) || 0)}
+              readOnly={ecomMode}
+            />
           </div>
           <div>
             <label className="label" htmlFor="bankName">Banka (opsiyonel)</label>
-            <input id="bankName" name="bankName" className="input" />
+            <input
+              id="bankName"
+              name="bankName"
+              className="input"
+              defaultValue={
+                ecomMode && isEcomChannel(channel)
+                  ? resolveEcomPlanRules(channel).bankName ?? ""
+                  : ""
+              }
+              key={ecomMode ? channel : "bank"}
+              readOnly={ecomMode}
+            />
           </div>
         </div>
 

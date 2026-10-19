@@ -97,6 +97,9 @@ export const CHANNEL_TR: Record<string, string> = {
   CASH: "Nakit",
   PROMISSORY: "Senet",
   TRANSFER: "Banka",
+  ECOM_ZIRAAT: "E-Ticaret Ziraat",
+  ECOM_ZIRAAT_2X: "E-Ticaret Ziraat 2 Taksit",
+  ECOM_OTHER_BANKS: "E-Ticaret Diğer Bankalar",
 };
 
 export const ROLE_TR: Record<string, string> = {
