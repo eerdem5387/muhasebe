@@ -153,7 +153,9 @@ export function CashbookPanel({
                     label="Ödeme yapan"
                     value={[selected.payerFirstName, selected.payerLastName].filter(Boolean).join(" ")}
                   />
-                  <DetailField label="TC kimlik" value={selected.payerIdentityNo} />
+                  {selected.payerIdentityNo ? (
+                    <DetailField label="TC kimlik" value={selected.payerIdentityNo} />
+                  ) : null}
                 </>
               ) : (
                 <>

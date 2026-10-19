@@ -1,0 +1,2 @@
+DO $$ BEGIN ALTER TYPE "CashbookChannel" ADD VALUE 'BANK'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE "CashbookChannel" ADD VALUE 'PROMISSORY'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;

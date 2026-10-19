@@ -136,22 +136,15 @@ const identityNo = z
   .trim()
   .regex(/^\d{10,11}$/, "TC kimlik 11, vergi no 10 haneli olmalıdır.");
 
-export const cashbookIncomeSchema = z
+export const cashbookChannelSchema = z.enum(["BANK", "CHECK", "CREDIT_CARD", "CASH", "PROMISSORY"]);
+
+const cashbookPaymentLineSchema = z
   .object({
-    yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
-    incomeCategory: z.enum(["STUDENT", "TRIP", "FOOD", "OTHER"]),
-    payerFirstName: z.string().trim().min(2, "Ad gerekli."),
-    payerLastName: z.string().trim().min(2, "Soyad gerekli."),
-    payerIdentityNo: z
-      .string()
-      .trim()
-      .regex(/^\d{11}$/, "TC kimlik 11 haneli olmalıdır."),
-    channel: z.enum(["CASH", "CREDIT_CARD", "CHECK"]),
+    channel: cashbookChannelSchema,
     bankName: opt,
     checkInstallments: opt,
     amount: decimalString,
     occurredAt: z.string().trim().min(1, "Tarih gerekli."),
-    notes: opt,
   })
   .superRefine((data, ctx) => {
     if (data.channel === "CHECK") {
@@ -180,12 +173,59 @@ export const cashbookIncomeSchema = z
     }
   });
 
+export const cashbookIncomeSchema = z
+  .object({
+    yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
+    incomeCategory: z.enum(["STUDENT", "TRIP", "FOOD", "OTHER"]),
+    studentId: opt,
+    payerFirstName: opt,
+    payerLastName: opt,
+    paymentsJson: z.string().trim().min(2, "En az bir ödeme satırı gerekli."),
+    notes: opt,
+  })
+  .superRefine((data, ctx) => {
+    if (data.incomeCategory === "STUDENT") {
+      if (!data.studentId?.trim()) {
+        ctx.addIssue({ code: "custom", path: ["studentId"], message: "Öğrenci seçin." });
+      }
+    } else {
+      if (!data.payerFirstName?.trim() || data.payerFirstName.trim().length < 2) {
+        ctx.addIssue({ code: "custom", path: ["payerFirstName"], message: "Ad gerekli." });
+      }
+      if (!data.payerLastName?.trim() || data.payerLastName.trim().length < 2) {
+        ctx.addIssue({ code: "custom", path: ["payerLastName"], message: "Soyad gerekli." });
+      }
+    }
+
+    let payments: unknown;
+    try {
+      payments = JSON.parse(data.paymentsJson);
+    } catch {
+      ctx.addIssue({ code: "custom", path: ["paymentsJson"], message: "Ödeme satırları geçersiz." });
+      return;
+    }
+    if (!Array.isArray(payments) || payments.length === 0) {
+      ctx.addIssue({ code: "custom", path: ["paymentsJson"], message: "En az bir ödeme satırı ekleyin." });
+      return;
+    }
+    for (let i = 0; i < payments.length; i++) {
+      const line = cashbookPaymentLineSchema.safeParse(payments[i]);
+      if (!line.success) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["paymentsJson"],
+          message: `Ödeme #${i + 1}: ${line.error.issues[0]?.message ?? "geçersiz"}`,
+        });
+      }
+    }
+  });
+
 export const cashbookExpenseSchema = z
   .object({
     yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
     expenseTitle: z.string().trim().min(2, "Harcama yapılan adı gerekli."),
     payeeIdentityNo: identityNo,
-    channel: z.enum(["CASH", "CREDIT_CARD", "CHECK"]),
+    channel: cashbookChannelSchema,
     bankName: opt,
     checkInstallments: opt,
     amount: decimalString,

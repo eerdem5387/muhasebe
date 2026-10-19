@@ -17,6 +17,21 @@ function yearMonthFromDate(isoDate: string): string {
   return isoDate.slice(0, 7);
 }
 
+function splitFullName(fullName: string): { first: string; last: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: "—", last: "—" };
+  if (parts.length === 1) return { first: parts[0]!, last: "—" };
+  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1]! };
+}
+
+type PaymentLine = {
+  channel: "BANK" | "CHECK" | "CREDIT_CARD" | "CASH" | "PROMISSORY";
+  bankName?: string | null;
+  checkInstallments?: string | null;
+  amount: string;
+  occurredAt: string;
+};
+
 export async function createCashbookIncomeAction(
   _prev: ActionState,
   formData: FormData,
@@ -25,37 +40,73 @@ export async function createCashbookIncomeAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
   const data = parsed.data;
 
+  let payments: PaymentLine[];
+  try {
+    payments = JSON.parse(data.paymentsJson) as PaymentLine[];
+  } catch {
+    return { error: "Ödeme satırları okunamadı." };
+  }
+  if (!Array.isArray(payments) || payments.length === 0) {
+    return { error: "En az bir ödeme satırı ekleyin." };
+  }
+
   try {
     const ctx = await requireOperations();
-    const yearMonth = data.yearMonth || yearMonthFromDate(data.occurredAt);
-    const created = await ctx.db.cashbookEntry.create({
-      data: {
-        tenantId: ctx.tenantId,
-        side: "INCOME",
-        yearMonth,
-        amount: new Prisma.Decimal(data.amount),
-        occurredAt: new Date(`${data.occurredAt}T12:00:00`),
-        channel: data.channel,
-        bankName: data.bankName?.trim() || null,
-        checkInstallments:
-          data.channel === "CHECK" ? Number(data.checkInstallments) : null,
-        incomeCategory: data.incomeCategory,
-        payerFirstName: data.payerFirstName,
-        payerLastName: data.payerLastName,
-        payerIdentityNo: data.payerIdentityNo,
-        notes: data.notes || null,
-      },
-    });
-    await pushFinanceEventToOkul(
-      "cashbook_entry.upserted",
-      ctx.tenantId,
-      serializeCashbookEntry(created),
-    );
-    revalidateMonth(yearMonth);
+
+    let payerFirstName = data.payerFirstName?.trim() || "";
+    let payerLastName = data.payerLastName?.trim() || "";
+
+    if (data.incomeCategory === "STUDENT") {
+      const student = await ctx.db.student.findFirst({
+        where: { id: data.studentId },
+        select: { fullName: true },
+      });
+      if (!student) return { error: "Öğrenci bulunamadı." };
+      const parts = splitFullName(student.fullName);
+      payerFirstName = parts.first;
+      payerLastName = parts.last;
+    }
+
+    const months = new Set<string>();
+    for (const pay of payments) {
+      const yearMonth = data.yearMonth || yearMonthFromDate(pay.occurredAt);
+      months.add(yearMonth);
+      const created = await ctx.db.cashbookEntry.create({
+        data: {
+          tenantId: ctx.tenantId,
+          side: "INCOME",
+          yearMonth,
+          amount: new Prisma.Decimal(pay.amount),
+          occurredAt: new Date(`${pay.occurredAt}T12:00:00`),
+          channel: pay.channel,
+          bankName: pay.bankName?.trim() || null,
+          checkInstallments:
+            pay.channel === "CHECK" && pay.checkInstallments
+              ? Number(pay.checkInstallments)
+              : null,
+          incomeCategory: data.incomeCategory,
+          payerFirstName,
+          payerLastName,
+          payerIdentityNo: null,
+          notes: data.notes || null,
+        },
+      });
+      await pushFinanceEventToOkul(
+        "cashbook_entry.upserted",
+        ctx.tenantId,
+        serializeCashbookEntry(created),
+      );
+    }
+    for (const ym of months) revalidateMonth(ym);
   } catch (err) {
     return { error: toErrorMessage(err) };
   }
-  return { success: "Gelir kaydı eklendi." };
+  return {
+    success:
+      payments.length > 1
+        ? `${payments.length} ödeme satırı kaydedildi.`
+        : "Gelir kaydı eklendi.",
+  };
 }
 
 export async function createCashbookExpenseAction(

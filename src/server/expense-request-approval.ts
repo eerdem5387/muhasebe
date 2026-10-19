@@ -8,10 +8,14 @@ import {
   serializeExpenseRequest,
 } from "@/server/okul-webhook";
 
-/** RequestChannel → CashbookChannel (kasa defterinde sınırlı kanal seti). */
-function toCashbookChannel(channel: string): "CASH" | "CREDIT_CARD" | "CHECK" {
+/** RequestChannel → CashbookChannel */
+function toCashbookChannel(
+  channel: string,
+): "BANK" | "CHECK" | "CREDIT_CARD" | "CASH" | "PROMISSORY" {
   if (channel === "CREDIT_CARD") return "CREDIT_CARD";
-  if (channel === "CHECK" || channel === "PROMISSORY") return "CHECK";
+  if (channel === "CHECK") return "CHECK";
+  if (channel === "PROMISSORY") return "PROMISSORY";
+  if (channel === "BANK" || channel === "TRANSFER") return "BANK";
   return "CASH";
 }
 

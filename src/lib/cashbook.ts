@@ -8,9 +8,11 @@ export const INCOME_CATEGORY_TR = {
 } as const;
 
 export const CASHBOOK_CHANNEL_TR = {
-  CASH: "Nakit",
-  CREDIT_CARD: "Kredi kartı",
+  BANK: "Banka",
   CHECK: "Çek",
+  CREDIT_CARD: "Kredi kartı",
+  CASH: "Nakit",
+  PROMISSORY: "Senet",
 } as const;
 
 export type IncomeCategoryKey = keyof typeof INCOME_CATEGORY_TR;

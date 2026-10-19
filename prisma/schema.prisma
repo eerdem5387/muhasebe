@@ -95,9 +95,11 @@ enum CashbookIncomeCategory {
 }
 
 enum CashbookChannel {
-  CASH
-  CREDIT_CARD
+  BANK
   CHECK
+  CREDIT_CARD
+  CASH
+  PROMISSORY
 }
 
 model Tenant {

@@ -20,7 +20,14 @@ export default async function MonthlyReportPage({
   const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const month = parseMonth((await searchParams).month);
 
-  const { incomeRows, expenseRows } = await loadMonthlyLedger(ctx.db, month);
+  const [{ incomeRows, expenseRows }, students] = await Promise.all([
+    loadMonthlyLedger(ctx.db, month),
+    ctx.db.student.findMany({
+      select: { id: true, fullName: true, classroom: true },
+      orderBy: { fullName: "asc" },
+      take: 2000,
+    }),
+  ]);
   const incomeBooked = bookedTotal(incomeRows);
   const incomePlanned = plannedTotal(incomeRows);
   const expenseBooked = bookedTotal(expenseRows);
@@ -50,7 +57,7 @@ export default async function MonthlyReportPage({
               <h3 className="text-base font-bold uppercase tracking-wide text-slate-900">Gelirler</h3>
               {canWrite ? (
                 <div className="print:hidden">
-                  <IncomeAddModal month={month} />
+                  <IncomeAddModal month={month} students={students} />
                 </div>
               ) : null}
             </div>
