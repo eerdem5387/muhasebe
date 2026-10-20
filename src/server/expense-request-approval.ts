@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma, getTenantDb } from "@/lib/prisma";
-import { toYearMonth } from "@/lib/format";
+import { CHANNEL_TR, toYearMonth } from "@/lib/format";
 import {
   pushFinanceEventToOkul,
   serializeCashbookEntry,
@@ -143,9 +143,12 @@ export async function completeExpenseRequest(input: {
       occurredAt: input.occurredAt,
       channel: toCashbookChannel(req.channel),
       expenseTitle: req.title,
-      notes: [req.notes, `Talep: ${req.requesterName}`, `Kanal: ${req.channel}`]
+      notes: [
+        req.notes?.trim() || null,
+        req.requesterName ? `Talep eden: ${req.requesterName}` : null,
+      ]
         .filter(Boolean)
-        .join(" · "),
+        .join(" · ") || null,
     },
   });
 
