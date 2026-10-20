@@ -82,17 +82,84 @@ export const incomePlanChannelSchema = z.enum([
   "ECOM_OTHER_BANKS",
 ]);
 
-export const incomePlanSchema = z.object({
-  categoryId: z.string().trim().min(1, "Gelir kalemi seçin."),
-  enrollmentId: opt,
-  amount: decimalString,
-  planDate: z.string().trim().min(1, "Tarih gerekli."),
+export const incomePlanPaymentLineSchema = z.object({
   paymentChannel: incomePlanChannelSchema,
+  amount: decimalString,
   installmentCount: z.coerce.number().int().min(1).max(48).default(1),
   blockDays: z.coerce.number().int().min(0).max(365).default(0),
-  bankName: opt,
-  notes: opt,
+  bankName: z.string().trim().optional().nullable(),
 });
+
+export const incomePlanSchema = z
+  .object({
+    categoryId: z.string().trim().min(1, "Gelir kalemi seçin."),
+    enrollmentId: opt,
+    /** Hedef toplam (öğrenci sözleşmesi / süper admin tutarı). Ödeme satırları buna eşit olmalı. */
+    amount: decimalString,
+    planDate: z.string().trim().min(1, "Tarih gerekli."),
+    notes: opt,
+    /** JSON: incomePlanPaymentLineSchema[] — birden fazla kanal/tutar */
+    paymentsJson: z.string().trim().min(2, "En az bir ödeme yöntemi ekleyin."),
+    /** Geriye dönük tek kanal alanları (opsiyonel; paymentsJson yoksa kullanılmaz) */
+    paymentChannel: incomePlanChannelSchema.optional(),
+    installmentCount: z.coerce.number().int().min(1).max(48).optional(),
+    blockDays: z.coerce.number().int().min(0).max(365).optional(),
+    bankName: opt,
+  })
+  .superRefine((data, ctx) => {
+    let payments: unknown;
+    try {
+      payments = JSON.parse(data.paymentsJson);
+    } catch {
+      ctx.addIssue({ code: "custom", path: ["paymentsJson"], message: "Ödeme listesi geçersiz." });
+      return;
+    }
+    if (!Array.isArray(payments) || payments.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["paymentsJson"],
+        message: "En az bir ödeme yöntemi ekleyin.",
+      });
+      return;
+    }
+    if (payments.length > 12) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["paymentsJson"],
+        message: "En fazla 12 ödeme yöntemi eklenebilir.",
+      });
+      return;
+    }
+    let sum = 0;
+    for (let i = 0; i < payments.length; i++) {
+      const line = incomePlanPaymentLineSchema.safeParse(payments[i]);
+      if (!line.success) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["paymentsJson"],
+          message: `Ödeme #${i + 1}: ${line.error.issues[0]?.message ?? "geçersiz"}`,
+        });
+        continue;
+      }
+      const n = Number(line.data.amount);
+      if (!(n > 0)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["paymentsJson"],
+          message: `Ödeme #${i + 1}: tutar 0’dan büyük olmalı.`,
+        });
+      }
+      sum += n;
+    }
+    const target = Number(data.amount);
+    if (!Number.isNaN(target) && Math.abs(sum - target) > 0.05) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["paymentsJson"],
+        message: `Ödeme tutarları toplamı (${sum.toFixed(2)}) plan tutarına (${target.toFixed(2)}) eşit olmalı.`,
+      });
+    }
+  });
 
 export const requestChannelSchema = z.enum(["BANK", "CHECK", "CREDIT_CARD", "CASH", "PROMISSORY"]);
 

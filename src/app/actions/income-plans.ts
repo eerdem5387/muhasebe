@@ -6,7 +6,11 @@ import {
   canOverrideContractAmounts,
   requireOperations,
 } from "@/lib/context";
-import { incomePlanCategorySchema, incomePlanSchema } from "@/lib/validation";
+import {
+  incomePlanCategorySchema,
+  incomePlanPaymentLineSchema,
+  incomePlanSchema,
+} from "@/lib/validation";
 import { toErrorMessage } from "@/lib/errors";
 import {
   buildPlanSchedule,
@@ -75,6 +79,51 @@ export async function createIncomePlanCategoryAction(
   return { success: "Gelir kalemi eklendi." };
 }
 
+type ParsedPayment = {
+  paymentChannel: PaymentChannel;
+  amount: Prisma.Decimal;
+  installmentCount: number;
+  blockDays: number;
+  bankName: string | null;
+};
+
+function parsePayments(rawJson: string): ParsedPayment[] | { error: string } {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(rawJson);
+  } catch {
+    return { error: "Ödeme listesi geçersiz." };
+  }
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return { error: "En az bir ödeme yöntemi ekleyin." };
+  }
+  const out: ParsedPayment[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const line = incomePlanPaymentLineSchema.safeParse(raw[i]);
+    if (!line.success) {
+      return { error: `Ödeme #${i + 1}: ${line.error.issues[0]?.message ?? "geçersiz"}` };
+    }
+    let paymentChannel = line.data.paymentChannel as PaymentChannel;
+    let installmentCount = line.data.installmentCount;
+    let blockDays = line.data.blockDays;
+    let bankName = line.data.bankName?.trim() || null;
+    if (isEcomChannel(paymentChannel)) {
+      const rules = resolveEcomPlanRules(paymentChannel);
+      installmentCount = rules.installmentCount;
+      blockDays = rules.blockDays;
+      bankName = rules.bankName;
+    }
+    out.push({
+      paymentChannel,
+      amount: new Prisma.Decimal(line.data.amount),
+      installmentCount,
+      blockDays,
+      bankName,
+    });
+  }
+  return out;
+}
+
 export async function createIncomePlanAction(
   _prev: ActionState,
   formData: FormData,
@@ -90,29 +139,27 @@ export async function createIncomePlanAction(
     });
     if (!category) return { error: "Gelir kalemi bulunamadı." };
 
-    let amount = new Prisma.Decimal(data.amount);
-    let enrollmentId: string | null = data.enrollmentId || null;
-    let paymentChannel = data.paymentChannel as PaymentChannel;
-    let installmentCount = data.installmentCount;
-    let blockDays = data.blockDays;
-    let bankName = data.bankName?.trim() || null;
+    const paymentsResult = parsePayments(data.paymentsJson);
+    if ("error" in paymentsResult) return { error: paymentsResult.error };
+    const payments = paymentsResult;
 
+    let targetAmount = new Prisma.Decimal(data.amount);
+    let enrollmentId: string | null = data.enrollmentId || null;
+    const planDate = new Date(`${data.planDate}T12:00:00`);
     const ecomOk = isEcommerceEligibleCategory(category.name);
-    if (isEcomChannel(paymentChannel)) {
-      if (!ecomOk) {
+
+    for (const pay of payments) {
+      if (isEcomChannel(pay.paymentChannel) && !ecomOk) {
         return { error: "E-ticaret kanalları yalnızca Kitap / Araç servis geliri için kullanılabilir." };
       }
-      const rules = resolveEcomPlanRules(paymentChannel);
-      installmentCount = rules.installmentCount;
-      blockDays = rules.blockDays;
-      bankName = rules.bankName;
+      if (pay.amount.lte(0)) return { error: "Her ödeme tutarı 0’dan büyük olmalı." };
     }
 
-    const planDate = new Date(`${data.planDate}T12:00:00`);
+    const paymentsSum = payments.reduce((s, p) => s.plus(p.amount), new Prisma.Decimal(0));
 
     if (category.requiresStudent) {
       if (!enrollmentId) return { error: "Öğrenci geliri için öğrenci seçin." };
-      if (isEcomChannel(paymentChannel)) {
+      if (payments.some((p) => isEcomChannel(p.paymentChannel))) {
         return { error: "Öğrenci gelirinde e-ticaret kanalı kullanılamaz." };
       }
       const enrollment = await ctx.db.enrollment.findFirst({
@@ -123,82 +170,117 @@ export async function createIncomePlanAction(
 
       const contractFee = new Prisma.Decimal(enrollment.annualFee);
       if (!canOverrideContractAmounts(ctx.isSuperAdmin)) {
-        amount = contractFee;
-      } else if (amount.lte(0)) {
-        amount = contractFee;
+        targetAmount = contractFee;
+      } else if (targetAmount.lte(0)) {
+        targetAmount = contractFee;
       }
 
+      if (paymentsSum.minus(targetAmount).abs().gt(0.05)) {
+        return {
+          error: `Ödeme tutarları toplamı (${paymentsSum.toFixed(2)}) plan tutarına (${targetAmount.toFixed(2)}) eşit olmalı.`,
+        };
+      }
+
+      const primary = [...payments].sort((a, b) => Number(b.amount.minus(a.amount)))[0]!;
       await ctx.db.enrollment.update({
         where: { id: enrollment.id },
         data: {
-          paymentChannel,
-          installmentCount,
+          paymentChannel: primary.paymentChannel,
+          installmentCount: primary.installmentCount,
         },
       });
 
-      // Enrollment schedule (öğrenci detay / eski plan uyumu)
       await ctx.db.incomeScheduleLine.deleteMany({ where: { enrollmentId: enrollment.id } });
-      const enrollmentDrafts = buildPlanSchedule({
-        amount,
-        paymentDate: planDate,
-        paymentChannel,
-        installmentCount,
-        blockDays,
-      });
-      await ctx.db.incomeScheduleLine.createMany({
-        data: enrollmentDrafts.map((line) => ({
-          tenantId: ctx.tenantId,
-          enrollmentId: enrollment.id,
-          installmentIndex: line.installmentIndex,
-          amount: line.amount,
-          releaseDate: line.releaseDate,
-          yearMonth: line.yearMonth,
-          status: scheduleStatus(line.releaseDate, false),
-          plannedChannel: paymentChannel,
-        })),
-      });
-    } else {
-      enrollmentId = null;
-      if (amount.lte(0)) return { error: "Tutar 0’dan büyük olmalı." };
-    }
-
-    const drafts = buildPlanSchedule({
-      amount,
-      paymentDate: planDate,
-      paymentChannel,
-      installmentCount,
-      blockDays,
-    });
-
-    await ctx.db.incomePlan.create({
-      data: {
-        tenantId: ctx.tenantId,
-        categoryId: category.id,
-        enrollmentId,
-        amount,
-        paymentChannel,
-        installmentCount,
-        blockDays,
-        bankName,
-        planDate,
-        notes: data.notes || null,
-        createdById: ctx.userId,
-        lines: {
-          create: drafts.map((line) => ({
+      let scheduleIndex = 1;
+      const scheduleRows: Array<{
+        tenantId: string;
+        enrollmentId: string;
+        installmentIndex: number;
+        amount: Prisma.Decimal;
+        releaseDate: Date;
+        yearMonth: string;
+        status: ReturnType<typeof scheduleStatus>;
+        plannedChannel: PaymentChannel;
+      }> = [];
+      for (const pay of payments) {
+        const drafts = buildPlanSchedule({
+          amount: pay.amount,
+          paymentDate: planDate,
+          paymentChannel: pay.paymentChannel,
+          installmentCount: pay.installmentCount,
+          blockDays: pay.blockDays,
+        });
+        for (const line of drafts) {
+          scheduleRows.push({
             tenantId: ctx.tenantId,
-            installmentIndex: line.installmentIndex,
+            enrollmentId: enrollment.id,
+            installmentIndex: scheduleIndex++,
             amount: line.amount,
             releaseDate: line.releaseDate,
             yearMonth: line.yearMonth,
             status: scheduleStatus(line.releaseDate, false),
-          })),
+            plannedChannel: pay.paymentChannel,
+          });
+        }
+      }
+      if (scheduleRows.length) {
+        await ctx.db.incomeScheduleLine.createMany({ data: scheduleRows });
+      }
+    } else {
+      enrollmentId = null;
+      if (targetAmount.lte(0)) targetAmount = paymentsSum;
+      if (paymentsSum.lte(0)) return { error: "Tutar 0’dan büyük olmalı." };
+      if (paymentsSum.minus(targetAmount).abs().gt(0.05)) {
+        return {
+          error: `Ödeme tutarları toplamı (${paymentsSum.toFixed(2)}) plan tutarına (${targetAmount.toFixed(2)}) eşit olmalı.`,
+        };
+      }
+    }
+
+    for (const pay of payments) {
+      const drafts = buildPlanSchedule({
+        amount: pay.amount,
+        paymentDate: planDate,
+        paymentChannel: pay.paymentChannel,
+        installmentCount: pay.installmentCount,
+        blockDays: pay.blockDays,
+      });
+
+      await ctx.db.incomePlan.create({
+        data: {
+          tenantId: ctx.tenantId,
+          categoryId: category.id,
+          enrollmentId,
+          amount: pay.amount,
+          paymentChannel: pay.paymentChannel,
+          installmentCount: pay.installmentCount,
+          blockDays: pay.blockDays,
+          bankName: pay.bankName,
+          planDate,
+          notes: data.notes || null,
+          createdById: ctx.userId,
+          lines: {
+            create: drafts.map((line) => ({
+              tenantId: ctx.tenantId,
+              installmentIndex: line.installmentIndex,
+              amount: line.amount,
+              releaseDate: line.releaseDate,
+              yearMonth: line.yearMonth,
+              status: scheduleStatus(line.releaseDate, false),
+            })),
+          },
         },
-      },
-    });
+      });
+    }
+
+    revalidateIncome();
+    return {
+      success:
+        payments.length > 1
+          ? `${payments.length} ödeme yöntemiyle gelir planı oluşturuldu.`
+          : "Gelir planı oluşturuldu.",
+    };
   } catch (err) {
     return { error: toErrorMessage(err) };
   }
-
-  revalidateIncome();
-  return { success: "Gelir planı oluşturuldu." };
 }

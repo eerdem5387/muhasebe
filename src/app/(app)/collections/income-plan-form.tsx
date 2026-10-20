@@ -27,10 +27,10 @@ export type PlanStudentOption = {
 };
 
 const BASE_CHANNELS = [
+  { value: "CASH", label: "Nakit" },
   { value: "CREDIT_CARD", label: "Kredi kartı" },
   { value: "EFT", label: "EFT / Havale" },
   { value: "CHECK", label: "Çek" },
-  { value: "CASH", label: "Nakit" },
 ] as const;
 
 const ECOM_CHANNEL_OPTIONS = [
@@ -38,6 +38,32 @@ const ECOM_CHANNEL_OPTIONS = [
   { value: "ECOM_ZIRAAT_2X", label: "E-Ticaret Ziraat 2 Taksit" },
   { value: "ECOM_OTHER_BANKS", label: "E-Ticaret Diğer Bankalar" },
 ] as const;
+
+type PaymentSlice = {
+  key: string;
+  channel: string;
+  amount: string;
+  installmentCount: number;
+  blockDays: number;
+  bankName: string;
+};
+
+function newSlice(partial?: Partial<PaymentSlice>): PaymentSlice {
+  return {
+    key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    channel: "CASH",
+    amount: "",
+    installmentCount: 1,
+    blockDays: 0,
+    bankName: "",
+    ...partial,
+  };
+}
+
+function parseAmount(raw: string): number {
+  const n = Number(String(raw).replace(",", ".").trim());
+  return Number.isFinite(n) ? n : 0;
+}
 
 export function IncomePlanCreateModal({
   categories,
@@ -51,14 +77,14 @@ export function IncomePlanCreateModal({
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [studentQuery, setStudentQuery] = useState("");
   const [enrollmentId, setEnrollmentId] = useState("");
-  const [channel, setChannel] = useState("CREDIT_CARD");
-  const [installments, setInstallments] = useState(10);
-  const [blockDays, setBlockDays] = useState(30);
+  const [targetAmount, setTargetAmount] = useState("");
+  const [payments, setPayments] = useState<PaymentSlice[]>(() => [
+    newSlice({ channel: "CREDIT_CARD", installmentCount: 10, blockDays: 30 }),
+  ]);
 
   const category = categories.find((c) => c.id === categoryId);
   const requiresStudent = Boolean(category?.requiresStudent);
   const ecomEligible = category ? isEcommerceEligibleCategory(category.name) && !requiresStudent : false;
-  const ecomMode = ecomEligible && isEcomChannel(channel);
   const selected = students.find((s) => s.enrollmentId === enrollmentId);
 
   const filteredStudents = useMemo(() => {
@@ -74,34 +100,84 @@ export function IncomePlanCreateModal({
       .slice(0, 40);
   }, [students, studentQuery]);
 
-  const lockedAmount = selected?.annualFee ?? 0;
+  const lockedFee = selected?.annualFee ?? 0;
+  const planTotal = requiresStudent
+    ? canOverrideAmount
+      ? parseAmount(targetAmount) || lockedFee
+      : lockedFee
+    : parseAmount(targetAmount);
+
+  const paymentsSum = payments.reduce((s, p) => s + parseAmount(p.amount), 0);
+  const remainder = Math.round((planTotal - paymentsSum) * 100) / 100;
+  const sumMatches = planTotal > 0 && Math.abs(remainder) <= 0.05;
 
   useEffect(() => {
-    if (!ecomEligible && isEcomChannel(channel)) {
-      setChannel("CREDIT_CARD");
-      setInstallments(10);
-      setBlockDays(30);
-      return;
+    if (!ecomEligible) {
+      setPayments((rows) =>
+        rows.map((r) =>
+          isEcomChannel(r.channel)
+            ? { ...r, channel: "CREDIT_CARD", installmentCount: 10, blockDays: 30, bankName: "" }
+            : r,
+        ),
+      );
     }
-    if (isEcomChannel(channel)) {
-      const rules = resolveEcomPlanRules(channel);
-      setInstallments(rules.installmentCount);
-      setBlockDays(rules.blockDays);
-    }
-  }, [categoryId, ecomEligible, channel]);
+  }, [categoryId, ecomEligible]);
 
-  const ecomHint =
-    channel === "ECOM_ZIRAAT"
-      ? "28 gün bloke · tutarın tamamı tek seferde planlanır."
-      : channel === "ECOM_ZIRAAT_2X"
-        ? "Tutar ikiye bölünür: yarısı +28 gün, diğer yarısı +56 gün."
-        : channel === "ECOM_OTHER_BANKS"
-          ? "39 gün bloke · tutarın tamamı tek seferde planlanır."
-          : null;
+  function updatePayment(key: string, patch: Partial<PaymentSlice>) {
+    setPayments((rows) =>
+      rows.map((r) => {
+        if (r.key !== key) return r;
+        const next = { ...r, ...patch };
+        if (patch.channel && isEcomChannel(patch.channel)) {
+          const rules = resolveEcomPlanRules(patch.channel);
+          next.installmentCount = rules.installmentCount;
+          next.blockDays = rules.blockDays;
+          next.bankName = rules.bankName ?? "";
+        }
+        return next;
+      }),
+    );
+  }
+
+  function selectStudent(s: PlanStudentOption) {
+    setEnrollmentId(s.enrollmentId);
+    setStudentQuery(s.fullName);
+    setTargetAmount(String(s.annualFee));
+    const ch = ["CREDIT_CARD", "EFT", "CHECK", "CASH"].includes(s.paymentChannel)
+      ? s.paymentChannel
+      : "CREDIT_CARD";
+    setPayments([
+      newSlice({
+        channel: ch,
+        amount: String(s.annualFee),
+        installmentCount: ch === "CASH" || ch === "EFT" ? 1 : 10,
+        blockDays: ch === "CREDIT_CARD" ? 30 : 0,
+      }),
+    ]);
+  }
+
+  const paymentsJson = JSON.stringify(
+    payments.map((p) => ({
+      paymentChannel: p.channel,
+      amount: p.amount,
+      installmentCount: p.installmentCount,
+      blockDays: p.blockDays,
+      bankName: p.bankName || null,
+    })),
+  );
+
+  const amountForSubmit = requiresStudent
+    ? canOverrideAmount
+      ? String(parseAmount(targetAmount) || lockedFee)
+      : String(lockedFee)
+    : String(parseAmount(targetAmount) || paymentsSum);
 
   return (
     <FormModal buttonLabel="Gelir planı ekle" title="Gelir planı oluştur" size="lg">
       <ActionForm action={createIncomePlanAction} submitLabel="Planı kaydet">
+        <input type="hidden" name="paymentsJson" value={paymentsJson} />
+        <input type="hidden" name="amount" value={amountForSubmit} />
+
         <div>
           <label className="label" htmlFor="categoryId">Gelir kalemi</label>
           <select
@@ -114,6 +190,8 @@ export function IncomePlanCreateModal({
               setCategoryId(e.target.value);
               setEnrollmentId("");
               setStudentQuery("");
+              setTargetAmount("");
+              setPayments([newSlice({ channel: "CREDIT_CARD", installmentCount: 10, blockDays: 30 })]);
             }}
           >
             {categories.map((c) => (
@@ -134,7 +212,7 @@ export function IncomePlanCreateModal({
               autoComplete="off"
             />
             <input type="hidden" name="enrollmentId" value={enrollmentId} />
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200">
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-ink-200">
               {filteredStudents.map((s) => {
                 const active = s.enrollmentId === enrollmentId;
                 const channelLabel = CHANNEL_TR[s.paymentChannel] ?? s.paymentChannel;
@@ -142,23 +220,17 @@ export function IncomePlanCreateModal({
                   <button
                     key={s.enrollmentId}
                     type="button"
-                    className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
-                      active ? "bg-brand-50 text-brand-800" : "text-slate-700"
+                    className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-ink-50 ${
+                      active ? "bg-brand-50 text-brand-800" : "text-ink-700"
                     }`}
-                    onClick={() => {
-                      setEnrollmentId(s.enrollmentId);
-                      setStudentQuery(s.fullName);
-                      if (["CREDIT_CARD", "EFT", "CHECK", "CASH"].includes(s.paymentChannel)) {
-                        setChannel(s.paymentChannel);
-                      }
-                    }}
+                    onClick={() => selectStudent(s)}
                   >
                     <span className="min-w-0">
                       <span className="block font-medium">
                         {s.fullName}
                         {s.classroom ? ` · ${s.classroom}` : ""}
                       </span>
-                      <span className={`mt-0.5 block text-xs ${active ? "text-brand-700" : "text-slate-500"}`}>
+                      <span className={`mt-0.5 block text-xs ${active ? "text-brand-700" : "text-ink-500"}`}>
                         {channelLabel}
                         {s.sourcePaymentPlan ? ` · ${s.sourcePaymentPlan}` : ""}
                       </span>
@@ -168,11 +240,11 @@ export function IncomePlanCreateModal({
                 );
               })}
               {filteredStudents.length === 0 ? (
-                <p className="px-3 py-2 text-sm text-slate-400">Öğrenci bulunamadı.</p>
+                <p className="px-3 py-2 text-sm text-ink-400">Öğrenci bulunamadı.</p>
               ) : null}
             </div>
             {selected ? (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-ink-500">
                 Seçili: {selected.fullName} · sözleşme tutarı {fmtMoney(selected.annualFee)}
                 {!canOverrideAmount ? " (değiştirilemez)" : ""}
               </p>
@@ -181,98 +253,189 @@ export function IncomePlanCreateModal({
             )}
             {canOverrideAmount ? (
               <div>
-                <label className="label" htmlFor="amount">Tutar (süper admin)</label>
+                <label className="label" htmlFor="amount-override">Plan tutarı (süper admin)</label>
                 <input
-                  id="amount"
-                  name="amount"
+                  id="amount-override"
                   className="input"
-                  defaultValue={lockedAmount || ""}
-                  key={enrollmentId || "amount"}
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value)}
                   required
                 />
               </div>
-            ) : (
-              <input type="hidden" name="amount" value={String(lockedAmount || "0")} />
-            )}
+            ) : null}
           </div>
         ) : (
           <div>
-            <label className="label" htmlFor="amount">Tutar</label>
-            <input id="amount" name="amount" className="input" required />
+            <label className="label" htmlFor="amount-override">Plan tutarı</label>
+            <input
+              id="amount-override"
+              className="input"
+              value={targetAmount}
+              onChange={(e) => {
+                const v = e.target.value;
+                setTargetAmount(v);
+                if (payments.length === 1) {
+                  setPayments((rows) => rows.map((r, i) => (i === 0 ? { ...r, amount: v } : r)));
+                }
+              }}
+              required
+            />
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="label" htmlFor="planDate">Plan tarihi</label>
-            <input id="planDate" name="planDate" type="date" className="input" defaultValue={todayISO()} required />
-          </div>
-          <div>
-            <label className="label" htmlFor="paymentChannel">Ödeme kanalı</label>
-            <select
-              id="paymentChannel"
-              name="paymentChannel"
-              className="input"
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-            >
-              {BASE_CHANNELS.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-              {ecomEligible
-                ? ECOM_CHANNEL_OPTIONS.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))
-                : null}
-            </select>
-            {ecomHint ? <p className="mt-1 text-xs text-brand-700">{ecomHint}</p> : null}
-          </div>
+        <div>
+          <label className="label" htmlFor="planDate">Plan tarihi</label>
+          <input id="planDate" name="planDate" type="date" className="input" defaultValue={todayISO()} required />
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div>
-            <label className="label" htmlFor="installmentCount">Taksit sayısı</label>
-            <input
-              id="installmentCount"
-              name="installmentCount"
-              type="number"
-              min={1}
-              max={48}
-              className="input"
-              value={installments}
-              onChange={(e) => setInstallments(Number(e.target.value) || 1)}
-              required
-              readOnly={ecomMode}
-            />
-          </div>
-          <div>
-            <label className="label" htmlFor="blockDays">Bloke (gün)</label>
-            <input
-              id="blockDays"
-              name="blockDays"
-              type="number"
-              min={0}
-              max={365}
-              className="input"
-              value={blockDays}
-              onChange={(e) => setBlockDays(Number(e.target.value) || 0)}
-              readOnly={ecomMode}
-            />
-          </div>
-          <div>
-            <label className="label" htmlFor="bankName">Banka (opsiyonel)</label>
-            <input
-              id="bankName"
-              name="bankName"
-              className="input"
-              defaultValue={
-                ecomMode && isEcomChannel(channel)
-                  ? resolveEcomPlanRules(channel).bankName ?? ""
-                  : ""
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">Ödeme yöntemleri</p>
+              <p className="text-xs text-ink-500">
+                Örn. 50.000 nakit + kalanı kredi kartı — her kanal ayrı plan satırı oluşturur.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-secondary !py-1.5 text-xs"
+              onClick={() =>
+                setPayments((rows) => [
+                  ...rows,
+                  newSlice({
+                    channel: "CREDIT_CARD",
+                    amount: remainder > 0 ? String(remainder) : "",
+                    installmentCount: 10,
+                    blockDays: 30,
+                  }),
+                ])
               }
-              key={ecomMode ? channel : "bank"}
-              readOnly={ecomMode}
-            />
+            >
+              + Ödeme ekle
+            </button>
+          </div>
+
+          {payments.map((pay, index) => {
+            const ecomMode = ecomEligible && isEcomChannel(pay.channel);
+            const ecomHint =
+              pay.channel === "ECOM_ZIRAAT"
+                ? "28 gün bloke · tutarın tamamı tek seferde planlanır."
+                : pay.channel === "ECOM_ZIRAAT_2X"
+                  ? "Tutar ikiye bölünür: yarısı +28 gün, diğer yarısı +56 gün."
+                  : pay.channel === "ECOM_OTHER_BANKS"
+                    ? "39 gün bloke · tutarın tamamı tek seferde planlanır."
+                    : null;
+
+            return (
+              <div key={pay.key} className="space-y-3 rounded-xl border border-ink-200 bg-ink-50/60 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-ink-800">Ödeme #{index + 1}</p>
+                  {payments.length > 1 ? (
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-red-600 hover:underline"
+                      onClick={() => setPayments((rows) => rows.filter((r) => r.key !== pay.key))}
+                    >
+                      Sil
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="label" htmlFor={`ch-${pay.key}`}>Ödeme kanalı</label>
+                    <select
+                      id={`ch-${pay.key}`}
+                      className="input"
+                      value={pay.channel}
+                      onChange={(e) => updatePayment(pay.key, { channel: e.target.value })}
+                    >
+                      {BASE_CHANNELS.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                      {ecomEligible
+                        ? ECOM_CHANNEL_OPTIONS.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))
+                        : null}
+                    </select>
+                    {ecomHint ? <p className="mt-1 text-xs text-brand-700">{ecomHint}</p> : null}
+                  </div>
+                  <div>
+                    <label className="label" htmlFor={`amt-${pay.key}`}>Tutar</label>
+                    <input
+                      id={`amt-${pay.key}`}
+                      className="input"
+                      value={pay.amount}
+                      onChange={(e) => updatePayment(pay.key, { amount: e.target.value })}
+                      required
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <label className="label" htmlFor={`inst-${pay.key}`}>Taksit sayısı</label>
+                    <input
+                      id={`inst-${pay.key}`}
+                      type="number"
+                      min={1}
+                      max={48}
+                      className="input"
+                      value={pay.installmentCount}
+                      onChange={(e) =>
+                        updatePayment(pay.key, { installmentCount: Number(e.target.value) || 1 })
+                      }
+                      readOnly={ecomMode}
+                    />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor={`blk-${pay.key}`}>Bloke (gün)</label>
+                    <input
+                      id={`blk-${pay.key}`}
+                      type="number"
+                      min={0}
+                      max={365}
+                      className="input"
+                      value={pay.blockDays}
+                      onChange={(e) =>
+                        updatePayment(pay.key, { blockDays: Number(e.target.value) || 0 })
+                      }
+                      readOnly={ecomMode}
+                    />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor={`bank-${pay.key}`}>Banka (opsiyonel)</label>
+                    <input
+                      id={`bank-${pay.key}`}
+                      className="input"
+                      value={pay.bankName}
+                      onChange={(e) => updatePayment(pay.key, { bankName: e.target.value })}
+                      readOnly={ecomMode}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div
+            className={`rounded-xl px-3 py-2 text-sm ${
+              sumMatches
+                ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100"
+                : "bg-amber-50 text-amber-900 ring-1 ring-amber-100"
+            }`}
+          >
+            Plan tutarı {fmtMoney(planTotal || 0)} · Ödemeler {fmtMoney(paymentsSum)}
+            {!sumMatches ? (
+              <span>
+                {" "}
+                · Kalan {fmtMoney(remainder)} {remainder > 0 ? "(eksik)" : "(fazla)"}
+              </span>
+            ) : (
+              <span> · Eşleşiyor</span>
+            )}
           </div>
         </div>
 
@@ -293,7 +456,7 @@ export function IncomeCategoryCreateModal() {
           <label className="label" htmlFor="cat-name">Kalem adı</label>
           <input id="cat-name" name="name" className="input" required placeholder="Örn: Yemekhane geliri" />
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
+        <label className="flex items-center gap-2 text-sm text-ink-700">
           <input type="checkbox" name="requiresStudent" value="true" />
           Öğrenci seçimi zorunlu (sözleşme tutarı kilitli)
         </label>
