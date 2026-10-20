@@ -2,7 +2,6 @@ import { requireAuth, canManageOperations } from "@/lib/context";
 import {
   completeExpenseRequestAction,
   createExpenseRequestAction,
-  deleteExpenseRequestAction,
   rejectRequestAction,
 } from "@/app/actions/expenses";
 import { PageHeader } from "@/components/page-header";
@@ -11,6 +10,7 @@ import { FormModal } from "@/components/form-modal";
 import { Badge } from "@/components/ui";
 import { CHANNEL_TR, STATUS_TR, fmtDate, fmtMoney, todayISO } from "@/lib/format";
 import { RequestDateFilter } from "./date-filter";
+import { DeleteRequestButton } from "./delete-button";
 
 const color = {
   PENDING: "amber",
@@ -127,22 +127,7 @@ export default async function RequestsPage({
                 <p className="text-sm font-semibold text-slate-800">
                   {r.total != null ? fmtMoney(Number(r.total)) : "—"}
                 </p>
-                {canWrite ? (
-                  <MiniForm action={deleteExpenseRequestAction}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <button
-                      type="submit"
-                      className="text-xs text-red-600 hover:underline"
-                      onClick={(e) => {
-                        if (!confirm("Bu talebi silmek istediğinize emin misiniz?")) {
-                          e.preventDefault();
-                        }
-                      }}
-                    >
-                      Sil
-                    </button>
-                  </MiniForm>
-                ) : null}
+                {canWrite ? <DeleteRequestButton id={r.id} /> : null}
               </div>
             </div>
 
