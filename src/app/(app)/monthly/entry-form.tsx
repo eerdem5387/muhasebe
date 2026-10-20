@@ -318,12 +318,8 @@ export function ExpenseAddModal({ month }: { month: string }) {
           <input id="expense-requester" name="requesterName" className="input" required placeholder="Ad soyad" />
         </div>
         <div>
-          <label className="label" htmlFor="expense-title">Alınan ürün</label>
-          <input id="expense-title" name="expenseTitle" className="input" required placeholder="Ürün / hizmet adı" />
-        </div>
-        <div>
-          <label className="label" htmlFor="expense-payee">Harcama yapılan adı</label>
-          <input id="expense-payee" name="payeeName" className="input" required />
+          <label className="label" htmlFor="expense-title">Harcama yapılan (ürün, hizmet, maaş, vb)</label>
+          <input id="expense-title" name="expenseTitle" className="input" required />
         </div>
         <div>
           <label className="label" htmlFor="payee-id">Ödeme yapılan (vergi no veya TC)</label>

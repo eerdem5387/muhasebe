@@ -122,7 +122,6 @@ export async function createCashbookExpenseAction(
     const yearMonth = data.yearMonth || yearMonthFromDate(data.occurredAt);
     const noteParts = [
       data.requesterName ? `Talep eden: ${data.requesterName.trim()}` : null,
-      data.payeeName ? `Harcama yapılan: ${data.payeeName.trim()}` : null,
       data.notes?.trim() || null,
     ].filter(Boolean);
 

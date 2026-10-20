@@ -111,7 +111,6 @@ export function CashbookPanel({
     if (!cleaned) return null;
     const without = cleaned
       .replace(/Talep eden:\s*[^·]+/gi, "")
-      .replace(/Harcama yapılan:\s*[^·]+/gi, "")
       .replace(/\s*[·]\s*[·]\s*/g, " · ")
       .replace(/^\s*[·]\s*|\s*[·]\s*$/g, "")
       .trim();
@@ -244,12 +243,8 @@ export function CashbookPanel({
                   </>
                 ) : (
                   <>
-                    <DetailRow label="Alınan ürün" value={selected.expenseTitle} />
+                    <DetailRow label="Harcama yapılan" value={selected.expenseTitle} />
                     <DetailRow label="Talep eden" value={parseNoteField(selected.notes, "Talep eden")} />
-                    <DetailRow
-                      label="Harcama yapılan"
-                      value={parseNoteField(selected.notes, "Harcama yapılan")}
-                    />
                     <DetailRow label="Vergi no / TC" value={selected.payeeIdentityNo} />
                     <DetailRow label="Fatura no" value={selected.invoiceNo} />
                   </>

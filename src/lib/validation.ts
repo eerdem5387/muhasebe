@@ -224,8 +224,7 @@ export const cashbookExpenseSchema = z
   .object({
     yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
     requesterName: z.string().trim().min(2, "Talep eden gerekli."),
-    expenseTitle: z.string().trim().min(2, "Alınan ürün gerekli."),
-    payeeName: z.string().trim().min(2, "Harcama yapılan adı gerekli."),
+    expenseTitle: z.string().trim().min(2, "Harcama yapılan gerekli."),
     payeeIdentityNo: identityNo,
     channel: cashbookChannelSchema,
     bankName: opt,
