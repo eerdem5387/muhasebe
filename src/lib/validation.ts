@@ -208,10 +208,13 @@ export const reportEntrySchema = z.object({
   notes: opt,
 });
 
-const identityNo = z
+/** Ödeme yapılan kimlik/unvan — serbest metin (harf+rakam), zorunlu değil */
+const payeeIdentityOptional = z
   .string()
   .trim()
-  .regex(/^\d{10,11}$/, "TC kimlik 11, vergi no 10 haneli olmalıdır.");
+  .max(120, "En fazla 120 karakter.")
+  .optional()
+  .or(z.literal(""));
 
 export const cashbookChannelSchema = z.enum(["BANK", "CHECK", "CREDIT_CARD", "CASH", "PROMISSORY"]);
 
@@ -309,7 +312,7 @@ export const cashbookExpenseSchema = z
     yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
     requesterName: z.string().trim().min(2, "Talep eden gerekli."),
     expenseTitle: z.string().trim().min(2, "Harcama yapılan gerekli."),
-    payeeIdentityNo: identityNo,
+    payeeIdentityNo: payeeIdentityOptional,
     channel: cashbookChannelSchema,
     bankName: opt,
     checkInstallments: opt,

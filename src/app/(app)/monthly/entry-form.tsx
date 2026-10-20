@@ -426,8 +426,18 @@ export function ExpenseAddModal({ month }: { month: string }) {
           </div>
         ) : null}
         <div>
-          <label className="label" htmlFor="payee-id">Ödeme yapılan (vergi no veya TC)</label>
-          <input id="payee-id" name="payeeIdentityNo" className="input" inputMode="numeric" maxLength={11} required />
+          <label className="label" htmlFor="payee-id">
+            Ödeme yapılan (vergi no, TC veya unvan){" "}
+            <span className="font-normal text-ink-400">— isteğe bağlı</span>
+          </label>
+          <input
+            id="payee-id"
+            name="payeeIdentityNo"
+            className="input"
+            maxLength={120}
+            placeholder="Örn. 1234567890 veya Firma A.Ş."
+            autoComplete="off"
+          />
         </div>
         <ChannelFields idPrefix="expense" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
