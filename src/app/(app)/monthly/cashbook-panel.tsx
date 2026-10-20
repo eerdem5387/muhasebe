@@ -99,16 +99,22 @@ export function CashbookPanel({
     }
   }
 
-  function parseRequester(notes: string | null | undefined): string | null {
+  function parseNoteField(notes: string | null | undefined, label: string): string | null {
     if (!notes) return null;
-    const m = notes.match(/Talep eden:\s*([^·]+)/i);
+    const re = new RegExp(`${label}:\\s*([^·]+)`, "i");
+    const m = notes.match(re);
     return m?.[1]?.trim() || null;
   }
 
-  function notesWithoutRequester(notes: string | null | undefined): string | null {
+  function leftoverNotes(notes: string | null | undefined): string | null {
     const cleaned = humanizeNotes(notes);
     if (!cleaned) return null;
-    const without = cleaned.replace(/Talep eden:\s*[^·]+/i, "").replace(/^\s*[·]\s*|\s*[·]\s*$/g, "").trim();
+    const without = cleaned
+      .replace(/Talep eden:\s*[^·]+/gi, "")
+      .replace(/Harcama yapılan:\s*[^·]+/gi, "")
+      .replace(/\s*[·]\s*[·]\s*/g, " · ")
+      .replace(/^\s*[·]\s*|\s*[·]\s*$/g, "")
+      .trim();
     return without || null;
   }
 
@@ -239,7 +245,11 @@ export function CashbookPanel({
                 ) : (
                   <>
                     <DetailRow label="Alınan ürün" value={selected.expenseTitle} />
-                    <DetailRow label="Talep eden" value={parseRequester(selected.notes)} />
+                    <DetailRow label="Talep eden" value={parseNoteField(selected.notes, "Talep eden")} />
+                    <DetailRow
+                      label="Harcama yapılan"
+                      value={parseNoteField(selected.notes, "Harcama yapılan")}
+                    />
                     <DetailRow label="Vergi no / TC" value={selected.payeeIdentityNo} />
                     <DetailRow label="Fatura no" value={selected.invoiceNo} />
                   </>
@@ -253,7 +263,7 @@ export function CashbookPanel({
                 />
                 <DetailRow
                   label="Açıklama"
-                  value={isIncome ? humanizeNotes(selected.notes) : notesWithoutRequester(selected.notes)}
+                  value={isIncome ? humanizeNotes(selected.notes) : leftoverNotes(selected.notes)}
                 />
               </dl>
             </div>

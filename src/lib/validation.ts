@@ -223,15 +223,16 @@ export const cashbookIncomeSchema = z
 export const cashbookExpenseSchema = z
   .object({
     yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
-    expenseTitle: z.string().trim().min(2, "Alınan ürün gerekli."),
     requesterName: z.string().trim().min(2, "Talep eden gerekli."),
-    payeeIdentityNo: opt,
+    expenseTitle: z.string().trim().min(2, "Alınan ürün gerekli."),
+    payeeName: z.string().trim().min(2, "Harcama yapılan adı gerekli."),
+    payeeIdentityNo: identityNo,
     channel: cashbookChannelSchema,
     bankName: opt,
     checkInstallments: opt,
     amount: decimalString,
     occurredAt: z.string().trim().min(1, "Tarih gerekli."),
-    invoiceNo: opt,
+    invoiceNo: z.string().trim().min(1, "Fatura no gerekli."),
     notes: opt,
   })
   .superRefine((data, ctx) => {

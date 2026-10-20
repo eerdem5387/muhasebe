@@ -321,6 +321,14 @@ export function ExpenseAddModal({ month }: { month: string }) {
           <label className="label" htmlFor="expense-title">Alınan ürün</label>
           <input id="expense-title" name="expenseTitle" className="input" required placeholder="Ürün / hizmet adı" />
         </div>
+        <div>
+          <label className="label" htmlFor="expense-payee">Harcama yapılan adı</label>
+          <input id="expense-payee" name="payeeName" className="input" required />
+        </div>
+        <div>
+          <label className="label" htmlFor="payee-id">Ödeme yapılan (vergi no veya TC)</label>
+          <input id="payee-id" name="payeeIdentityNo" className="input" inputMode="numeric" maxLength={11} required />
+        </div>
         <ChannelFields idPrefix="expense" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
@@ -331,6 +339,10 @@ export function ExpenseAddModal({ month }: { month: string }) {
             <label className="label" htmlFor="expense-date">Tarih</label>
             <input id="expense-date" name="occurredAt" type="date" className="input" defaultValue={defaultDay} required />
           </div>
+        </div>
+        <div>
+          <label className="label" htmlFor="invoice-no">Fatura no</label>
+          <input id="invoice-no" name="invoiceNo" className="input" required />
         </div>
       </ActionForm>
     </FormModal>

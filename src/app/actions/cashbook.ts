@@ -122,6 +122,7 @@ export async function createCashbookExpenseAction(
     const yearMonth = data.yearMonth || yearMonthFromDate(data.occurredAt);
     const noteParts = [
       data.requesterName ? `Talep eden: ${data.requesterName.trim()}` : null,
+      data.payeeName ? `Harcama yapılan: ${data.payeeName.trim()}` : null,
       data.notes?.trim() || null,
     ].filter(Boolean);
 
@@ -137,8 +138,8 @@ export async function createCashbookExpenseAction(
         checkInstallments:
           data.channel === "CHECK" ? Number(data.checkInstallments) : null,
         expenseTitle: data.expenseTitle,
-        payeeIdentityNo: data.payeeIdentityNo?.trim() || null,
-        invoiceNo: data.invoiceNo?.trim() || null,
+        payeeIdentityNo: data.payeeIdentityNo,
+        invoiceNo: data.invoiceNo,
         notes: noteParts.length ? noteParts.join(" · ") : null,
       },
     });
