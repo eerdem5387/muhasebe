@@ -1,11 +1,12 @@
 /**
  * Maps Vercel/Neon Postgres env vars onto DATABASE_URL (+ DIRECT_URL) and
- * writes a .env file so prisma migrate deploy and Next.js both see them.
+ * writes a .env file so prisma CLI / Next.js both see them during the build.
  *
- * Neon: pooled URLs are fine for the app runtime, but `prisma migrate deploy`
- * needs a direct (non-pooling) connection for advisory locks.
+ * Neon: prefer the non-pooling URL for build-time DATABASE_URL so
+ * `prisma migrate deploy` can use Postgres advisory locks. Runtime still
+ * prefers pooled URLs via process.env (see src/lib/ensure-db-url.ts).
  */
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 function firstEnv(keys) {
   for (const key of keys) {
@@ -13,6 +14,14 @@ function firstEnv(keys) {
     if (value) return { key, value };
   }
   return null;
+}
+
+function isPoolerUrl(url) {
+  try {
+    return /pooler/i.test(new URL(url).hostname);
+  } catch {
+    return /pooler/i.test(url);
+  }
 }
 
 const pooled = firstEnv([
@@ -26,9 +35,6 @@ const direct = firstEnv([
   "DIRECT_URL",
   "DATABASE_URL_UNPOOLED",
   "POSTGRES_URL_NON_POOLING",
-  "DATABASE_URL",
-  "POSTGRES_URL",
-  "NEON_DATABASE_URL",
 ]);
 
 if (!pooled && !direct) {
@@ -44,45 +50,61 @@ Elle eklemek için: Settings → Environment Variables → DATABASE_URL
   process.exit(1);
 }
 
-const databaseUrl = pooled?.value ?? direct.value;
-/** Prefer non-pooling for migrations; fall back to pooled if that is all we have. */
-const directUrl = direct?.value ?? databaseUrl;
+const pooledUrl = pooled?.value ?? direct.value;
+let directUrl = direct?.value ?? pooledUrl;
 
-process.env.DATABASE_URL = databaseUrl;
+// If "direct" still looks pooled, keep searching aliases for a non-pooler host.
+if (isPoolerUrl(directUrl)) {
+  const better = firstEnv([
+    "DIRECT_URL",
+    "DATABASE_URL_UNPOOLED",
+    "POSTGRES_URL_NON_POOLING",
+    "DATABASE_URL",
+    "POSTGRES_URL",
+    "NEON_DATABASE_URL",
+  ]);
+  if (better && !isPoolerUrl(better.value)) {
+    directUrl = better.value;
+  }
+}
+
+/** Build-time Prisma CLI reads .env and overwrites process.env — use direct URL here. */
+const buildDatabaseUrl = isPoolerUrl(directUrl) && !isPoolerUrl(pooledUrl) ? pooledUrl : directUrl;
+
+process.env.DATABASE_URL = buildDatabaseUrl;
 process.env.DIRECT_URL = directUrl;
 
 function upsertEnvFile(vars) {
   let content = existsSync(".env") ? readFileSync(".env", "utf8") : "";
   for (const [key, value] of Object.entries(vars)) {
-    const line = `${key}="${value}"\n`;
+    const line = `${key}="${value}"`;
     const re = new RegExp(`^${key}=.*$`, "m");
     if (re.test(content)) {
-      content = content.replace(re, line.trimEnd());
+      content = content.replace(re, line);
     } else {
-      content = content ? `${content.trimEnd()}\n${line}` : line;
+      content = content ? `${content.trimEnd()}\n${line}\n` : `${line}\n`;
     }
   }
   writeFileSync(".env", content.endsWith("\n") ? content : `${content}\n`);
 }
 
-upsertEnvFile({ DATABASE_URL: databaseUrl, DIRECT_URL: directUrl });
+upsertEnvFile({ DATABASE_URL: buildDatabaseUrl, DIRECT_URL: directUrl });
 
-const pooledHost = (() => {
+function hostOf(url) {
   try {
-    return new URL(databaseUrl).host;
+    return new URL(url).host;
   } catch {
     return "(parse-error)";
   }
-})();
-const directHost = (() => {
-  try {
-    return new URL(directUrl).host;
-  } catch {
-    return "(parse-error)";
-  }
-})();
+}
 
 console.log(
-  `DATABASE_URL hazır (${pooled?.key ?? "fallback"} → ${pooledHost}).` +
-    ` DIRECT_URL (${direct?.key ?? "fallback"} → ${directHost}).`,
+  `DATABASE_URL hazır (build → ${hostOf(buildDatabaseUrl)}${isPoolerUrl(buildDatabaseUrl) ? " [pooler]" : ""}).` +
+    ` DIRECT_URL (${direct?.key ?? pooled?.key ?? "fallback"} → ${hostOf(directUrl)}${isPoolerUrl(directUrl) ? " [pooler]" : ""}).`,
 );
+
+if (isPoolerUrl(buildDatabaseUrl)) {
+  console.warn(
+    "Uyarı: Build DATABASE_URL hâlâ pooler görünüyor. Neon’da POSTGRES_URL_NON_POOLING / DATABASE_URL_UNPOOLED tanımlayın.",
+  );
+}
