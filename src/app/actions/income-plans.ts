@@ -284,3 +284,72 @@ export async function createIncomePlanAction(
     return { error: toErrorMessage(err) };
   }
 }
+
+async function rebuildEnrollmentScheduleFromPlans(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  tenantId: string,
+  enrollmentId: string,
+) {
+  await db.incomeScheduleLine.deleteMany({ where: { enrollmentId } });
+  const remaining = await db.incomePlan.findMany({
+    where: { enrollmentId },
+    orderBy: [{ planDate: "asc" }, { createdAt: "asc" }],
+  });
+  let scheduleIndex = 1;
+  const rows: Array<{
+    tenantId: string;
+    enrollmentId: string;
+    installmentIndex: number;
+    amount: Prisma.Decimal;
+    releaseDate: Date;
+    yearMonth: string;
+    status: ReturnType<typeof scheduleStatus>;
+    plannedChannel: PaymentChannel;
+  }> = [];
+  for (const plan of remaining) {
+    const drafts = buildPlanSchedule({
+      amount: plan.amount,
+      paymentDate: plan.planDate,
+      paymentChannel: plan.paymentChannel,
+      installmentCount: plan.installmentCount,
+      blockDays: plan.blockDays,
+    });
+    for (const line of drafts) {
+      rows.push({
+        tenantId,
+        enrollmentId,
+        installmentIndex: scheduleIndex++,
+        amount: line.amount,
+        releaseDate: line.releaseDate,
+        yearMonth: line.yearMonth,
+        status: scheduleStatus(line.releaseDate, false),
+        plannedChannel: plan.paymentChannel,
+      });
+    }
+  }
+  if (rows.length) {
+    await db.incomeScheduleLine.createMany({ data: rows });
+  }
+}
+
+/** Tüm taksit satırlarıyla birlikte bir gelir planını siler. */
+export async function deleteIncomePlanAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return;
+  try {
+    const ctx = await requireOperations();
+    const plan = await ctx.db.incomePlan.findFirst({
+      where: { id },
+      select: { id: true, enrollmentId: true },
+    });
+    if (!plan) return;
+    await ctx.db.incomePlan.delete({ where: { id: plan.id } });
+    if (plan.enrollmentId) {
+      await rebuildEnrollmentScheduleFromPlans(ctx.db, ctx.tenantId, plan.enrollmentId);
+    }
+  } catch (err) {
+    console.error("deleteIncomePlanAction", toErrorMessage(err));
+  }
+  revalidateIncome();
+}

@@ -5,6 +5,7 @@ import { CHANNEL_TR, STATUS_TR, fmtDate, fmtMoney, fmtMonth, resolveActiveAcadem
 import { scheduleStatus } from "@/server/income-schedule";
 import { ensureDefaultIncomePlanCategories } from "@/app/actions/income-plans";
 import { IncomeCategoryCreateModal, IncomePlanCreateModal } from "./income-plan-form";
+import { DeletePlanButton } from "./delete-plan-button";
 
 const color = { BLOCKED: "amber", EXPECTED: "blue", REALIZED: "green" } as const;
 
@@ -118,28 +119,37 @@ export default async function IncomePlanPage() {
                     <th className="px-4 py-2.5 text-right">Tutar</th>
                     <th className="px-4 py-2.5">Serbest</th>
                     <th className="px-4 py-2.5">Durum</th>
+                    {canWrite ? <th className="px-4 py-2.5 text-right">İşlem</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {rows.map((r) => (
-                    <tr key={r.id}>
-                      <td className="td">
-                        <span className="font-medium">{r.plan.category.name}</span>
-                        {r.studentName ? (
-                          <span className="block text-xs text-slate-500">{r.studentName}</span>
+                  {rows.map((r) => {
+                    const firstOfPlan = r.installmentIndex === 1;
+                    return (
+                      <tr key={r.id}>
+                        <td className="td">
+                          <span className="font-medium">{r.plan.category.name}</span>
+                          {r.studentName ? (
+                            <span className="block text-xs text-slate-500">{r.studentName}</span>
+                          ) : null}
+                        </td>
+                        <td className="td">{CHANNEL_TR[r.plan.paymentChannel]}</td>
+                        <td className="td">
+                          {r.installmentIndex}/{r.plan.installmentCount}
+                        </td>
+                        <td className="td text-right">{fmtMoney(Number(r.amount))}</td>
+                        <td className="td text-slate-500">{fmtDate(r.releaseDate)}</td>
+                        <td className="td">
+                          <Badge color={color[r.liveStatus]}>{STATUS_TR[r.liveStatus]}</Badge>
+                        </td>
+                        {canWrite ? (
+                          <td className="td text-right">
+                            {firstOfPlan ? <DeletePlanButton planId={r.plan.id} /> : null}
+                          </td>
                         ) : null}
-                      </td>
-                      <td className="td">{CHANNEL_TR[r.plan.paymentChannel]}</td>
-                      <td className="td">
-                        {r.installmentIndex}/{r.plan.installmentCount}
-                      </td>
-                      <td className="td text-right">{fmtMoney(Number(r.amount))}</td>
-                      <td className="td text-slate-500">{fmtDate(r.releaseDate)}</td>
-                      <td className="td">
-                        <Badge color={color[r.liveStatus]}>{STATUS_TR[r.liveStatus]}</Badge>
-                      </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </section>
