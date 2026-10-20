@@ -247,8 +247,11 @@ export function CashbookPanel({
                   <>
                     <DetailRow label="Harcama yapılan" value={selected.expenseTitle} />
                     <DetailRow label="Talep eden" value={parseNoteField(selected.notes, "Talep eden")} />
-                    <DetailRow label="Vergi no / TC" value={selected.payeeIdentityNo} />
-                    <DetailRow label="Fatura no" value={selected.invoiceNo} />
+                    <DetailRow
+                      label="Ödeme yapılan / tedarikçi"
+                      value={selected.payeeIdentityNo}
+                    />
+                    <DetailRow label="Açıklama" value={selected.invoiceNo} />
                   </>
                 )}
                 <DetailRow

@@ -375,6 +375,8 @@ export function ExpenseAddModal({ month }: { month: string }) {
   const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
   const [kind, setKind] = useState<(typeof EXPENSE_KIND_OPTIONS)[number]>("Ürün");
   const [productName, setProductName] = useState("");
+  const [hasRequester, setHasRequester] = useState(false);
+  const [requesterName, setRequesterName] = useState("");
   const isProduct = kind === "Ürün";
   const expenseTitle = isProduct
     ? productName.trim()
@@ -387,10 +389,8 @@ export function ExpenseAddModal({ month }: { month: string }) {
       <ActionForm action={createCashbookExpenseAction} submitLabel="Kaydet">
         <input type="hidden" name="yearMonth" value={month} />
         <input type="hidden" name="expenseTitle" value={expenseTitle} />
-        <div>
-          <label className="label" htmlFor="expense-requester">Talep eden</label>
-          <input id="expense-requester" name="requesterName" className="input" required placeholder="Ad soyad" />
-        </div>
+        <input type="hidden" name="requesterName" value={hasRequester ? requesterName : ""} />
+
         <div>
           <label className="label" htmlFor="expense-kind">Harcama yapılan</label>
           <select
@@ -411,6 +411,7 @@ export function ExpenseAddModal({ month }: { month: string }) {
             ))}
           </select>
         </div>
+
         {isProduct ? (
           <div>
             <label className="label" htmlFor="expense-product">Ürün adı</label>
@@ -425,20 +426,50 @@ export function ExpenseAddModal({ month }: { month: string }) {
             />
           </div>
         ) : null}
+
         <div>
           <label className="label" htmlFor="payee-id">
-            Ödeme yapılan (vergi no, TC veya unvan){" "}
-            <span className="font-normal text-ink-400">— isteğe bağlı</span>
+            Ödeme Yapılan Kişi yada Kurum / Tedarikçi / Harcamanın Adı
           </label>
           <input
             id="payee-id"
             name="payeeIdentityNo"
             className="input"
-            maxLength={120}
-            placeholder="Örn. 1234567890 veya Firma A.Ş."
+            maxLength={200}
+            placeholder="Örn. ABC Ltd. · muhasebe yazılımı aboneliği"
             autoComplete="off"
           />
         </div>
+
+        <div className="space-y-2">
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+              checked={hasRequester}
+              onChange={(e) => {
+                setHasRequester(e.target.checked);
+                if (!e.target.checked) setRequesterName("");
+              }}
+            />
+            Talep eden var
+          </label>
+          {hasRequester ? (
+            <div>
+              <label className="label" htmlFor="expense-requester">Talep eden</label>
+              <input
+                id="expense-requester"
+                className="input"
+                value={requesterName}
+                onChange={(e) => setRequesterName(e.target.value)}
+                placeholder="Ad soyad"
+                required
+                minLength={2}
+              />
+            </div>
+          ) : null}
+        </div>
+
         <ChannelFields idPrefix="expense" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
@@ -451,8 +482,13 @@ export function ExpenseAddModal({ month }: { month: string }) {
           </div>
         </div>
         <div>
-          <label className="label" htmlFor="invoice-no">Fatura no</label>
-          <input id="invoice-no" name="invoiceNo" className="input" required />
+          <label className="label" htmlFor="invoice-no">Açıklama</label>
+          <input
+            id="invoice-no"
+            name="invoiceNo"
+            className="input"
+            placeholder="İsteğe bağlı not veya fatura bilgisi"
+          />
         </div>
       </ActionForm>
     </FormModal>

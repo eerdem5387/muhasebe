@@ -138,7 +138,7 @@ export async function createCashbookExpenseAction(
           data.channel === "CHECK" ? Number(data.checkInstallments) : null,
         expenseTitle: data.expenseTitle,
         payeeIdentityNo: data.payeeIdentityNo?.trim() || null,
-        invoiceNo: data.invoiceNo,
+        invoiceNo: data.invoiceNo?.trim() || null,
         notes: noteParts.length ? noteParts.join(" · ") : null,
       },
     });
