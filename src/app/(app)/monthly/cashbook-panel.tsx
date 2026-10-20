@@ -78,9 +78,11 @@ export function CashbookPanel({
   const isIncome = side === "INCOME";
 
   const channelDisplay = selected
-    ? selected.channel
-      ? CASHBOOK_CHANNEL_TR[selected.channel] ?? selected.channelLabel
-      : selected.channelLabel
+    ? selected.channel === "BANK" && isIncome
+      ? "EFT / Havale"
+      : selected.channel
+        ? CASHBOOK_CHANNEL_TR[selected.channel] ?? selected.channelLabel
+        : selected.channelLabel
     : "";
 
   async function handleDelete() {
@@ -249,7 +251,14 @@ export function CashbookPanel({
                     <DetailRow label="Fatura no" value={selected.invoiceNo} />
                   </>
                 )}
-                <DetailRow label="Banka" value={selected.bankName} />
+                <DetailRow
+                  label={
+                    isIncome && selected.channel === "BANK"
+                      ? "Banka hesabı"
+                      : "Banka"
+                  }
+                  value={selected.bankName}
+                />
                 <DetailRow
                   label="Çek vade sayısı"
                   value={

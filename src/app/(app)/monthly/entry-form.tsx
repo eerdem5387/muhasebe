@@ -22,7 +22,16 @@ type PaymentLine = {
   occurredAt: string;
 };
 
-const CHANNEL_OPTIONS = [
+/** Gelir ekle: BANK = EFT/Havale (hesap sorusu için). Gider formu kendi etiketini kullanır. */
+const INCOME_CHANNEL_OPTIONS = [
+  { value: "BANK", label: "EFT / Havale" },
+  { value: "CHECK", label: CASHBOOK_CHANNEL_TR.CHECK },
+  { value: "CREDIT_CARD", label: CASHBOOK_CHANNEL_TR.CREDIT_CARD },
+  { value: "CASH", label: CASHBOOK_CHANNEL_TR.CASH },
+  { value: "PROMISSORY", label: CASHBOOK_CHANNEL_TR.PROMISSORY },
+] as const;
+
+const EXPENSE_CHANNEL_OPTIONS = [
   { value: "BANK", label: CASHBOOK_CHANNEL_TR.BANK },
   { value: "CHECK", label: CASHBOOK_CHANNEL_TR.CHECK },
   { value: "CREDIT_CARD", label: CASHBOOK_CHANNEL_TR.CREDIT_CARD },
@@ -55,7 +64,7 @@ function ChannelFields({ idPrefix }: { idPrefix: string }) {
           onChange={(e) => setChannel(e.target.value)}
           required
         >
-          {CHANNEL_OPTIONS.map((c) => (
+          {EXPENSE_CHANNEL_OPTIONS.map((c) => (
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
@@ -241,13 +250,37 @@ export function IncomeAddModal({
                   id={`ch-${pay.key}`}
                   className="input"
                   value={pay.channel}
-                  onChange={(e) => updatePayment(pay.key, { channel: e.target.value })}
+                  onChange={(e) =>
+                    updatePayment(pay.key, {
+                      channel: e.target.value,
+                      bankName:
+                        e.target.value === "BANK" ||
+                        e.target.value === "CREDIT_CARD" ||
+                        e.target.value === "CHECK"
+                          ? pay.bankName
+                          : "",
+                    })
+                  }
                 >
-                  {CHANNEL_OPTIONS.map((c) => (
+                  {INCOME_CHANNEL_OPTIONS.map((c) => (
                     <option key={c.value} value={c.value}>{c.label}</option>
                   ))}
                 </select>
               </div>
+              {pay.channel === "BANK" && (
+                <div>
+                  <label className="label" htmlFor={`bank-${pay.key}`}>Hangi banka hesabına?</label>
+                  <input
+                    id={`bank-${pay.key}`}
+                    className="input"
+                    value={pay.bankName}
+                    onChange={(e) => updatePayment(pay.key, { bankName: e.target.value })}
+                    placeholder="Örn. Ziraat Bankası Vadeli hesap"
+                    required
+                    minLength={2}
+                  />
+                </div>
+              )}
               {(pay.channel === "CREDIT_CARD" || pay.channel === "CHECK") && (
                 <div>
                   <label className="label" htmlFor={`bank-${pay.key}`}>Banka adı</label>

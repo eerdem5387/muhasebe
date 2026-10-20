@@ -350,7 +350,18 @@ export function IncomePlanCreateModal({
                       id={`ch-${pay.key}`}
                       className="input"
                       value={pay.channel}
-                      onChange={(e) => updatePayment(pay.key, { channel: e.target.value })}
+                      onChange={(e) => {
+                        const channel = e.target.value;
+                        const keepBank =
+                          channel === "EFT" ||
+                          channel === "CREDIT_CARD" ||
+                          channel === "CHECK" ||
+                          isEcomChannel(channel);
+                        updatePayment(pay.key, {
+                          channel,
+                          bankName: keepBank ? pay.bankName : "",
+                        });
+                      }}
                     >
                       {BASE_CHANNELS.map((c) => (
                         <option key={c.value} value={c.value}>{c.label}</option>
@@ -407,8 +418,28 @@ export function IncomePlanCreateModal({
                       readOnly={ecomMode}
                     />
                   </div>
-                  <div className="min-w-0 sm:col-span-2">
-                    <label className="label" htmlFor={`bank-${pay.key}`}>Banka (opsiyonel)</label>
+                </div>
+
+                {pay.channel === "EFT" ? (
+                  <div className="min-w-0">
+                    <label className="label" htmlFor={`bank-${pay.key}`}>Hangi banka hesabına?</label>
+                    <input
+                      id={`bank-${pay.key}`}
+                      className="input"
+                      value={pay.bankName}
+                      onChange={(e) => updatePayment(pay.key, { bankName: e.target.value })}
+                      placeholder="Örn. Ziraat Bankası Vadeli hesap"
+                      required
+                      minLength={2}
+                    />
+                  </div>
+                ) : null}
+
+                {(pay.channel === "CREDIT_CARD" || pay.channel === "CHECK" || ecomMode) && (
+                  <div className="min-w-0">
+                    <label className="label" htmlFor={`bank-${pay.key}`}>
+                      {ecomMode ? "Banka" : "Banka (opsiyonel)"}
+                    </label>
                     <input
                       id={`bank-${pay.key}`}
                       className="input"
@@ -417,7 +448,7 @@ export function IncomePlanCreateModal({
                       readOnly={ecomMode}
                     />
                   </div>
-                </div>
+                )}
               </div>
             );
           })}

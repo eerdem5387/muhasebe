@@ -82,13 +82,23 @@ export const incomePlanChannelSchema = z.enum([
   "ECOM_OTHER_BANKS",
 ]);
 
-export const incomePlanPaymentLineSchema = z.object({
-  paymentChannel: incomePlanChannelSchema,
-  amount: decimalString,
-  installmentCount: z.coerce.number().int().min(1).max(48).default(1),
-  blockDays: z.coerce.number().int().min(0).max(365).default(0),
-  bankName: z.string().trim().optional().nullable(),
-});
+export const incomePlanPaymentLineSchema = z
+  .object({
+    paymentChannel: incomePlanChannelSchema,
+    amount: decimalString,
+    installmentCount: z.coerce.number().int().min(1).max(48).default(1),
+    blockDays: z.coerce.number().int().min(0).max(365).default(0),
+    bankName: z.string().trim().optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.paymentChannel === "EFT" && (!data.bankName || data.bankName.trim().length < 2)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["bankName"],
+        message: "EFT / Havale için banka hesabı gerekli.",
+      });
+    }
+  });
 
 export const incomePlanSchema = z
   .object({
@@ -236,6 +246,13 @@ const cashbookPaymentLineSchema = z
         code: "custom",
         path: ["bankName"],
         message: "Kredi kartı için banka adı gerekli.",
+      });
+    }
+    if (data.channel === "BANK" && !data.bankName?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["bankName"],
+        message: "EFT / Havale için banka hesabı gerekli.",
       });
     }
   });
