@@ -179,3 +179,15 @@ export async function rejectRequestAction(formData: FormData): Promise<void> {
   });
   revalidatePath("/requests");
 }
+
+/** Yanlış oluşturulan talebi siler (okul paneline de bildirir). */
+export async function deleteExpenseRequestAction(formData: FormData): Promise<void> {
+  const ctx = await requireOperations();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const existing = await ctx.db.expenseRequest.findFirst({ where: { id } });
+  if (!existing) return;
+  await ctx.db.expenseRequest.deleteMany({ where: { id } });
+  await pushFinanceEventToOkul("expense_request.deleted", ctx.tenantId, { id });
+  revalidatePath("/requests");
+}
