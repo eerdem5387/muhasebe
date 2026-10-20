@@ -120,6 +120,11 @@ export async function createCashbookExpenseAction(
   try {
     const ctx = await requireOperations();
     const yearMonth = data.yearMonth || yearMonthFromDate(data.occurredAt);
+    const noteParts = [
+      data.requesterName ? `Talep eden: ${data.requesterName.trim()}` : null,
+      data.notes?.trim() || null,
+    ].filter(Boolean);
+
     const created = await ctx.db.cashbookEntry.create({
       data: {
         tenantId: ctx.tenantId,
@@ -132,9 +137,9 @@ export async function createCashbookExpenseAction(
         checkInstallments:
           data.channel === "CHECK" ? Number(data.checkInstallments) : null,
         expenseTitle: data.expenseTitle,
-        payeeIdentityNo: data.payeeIdentityNo,
-        invoiceNo: data.invoiceNo,
-        notes: data.notes || null,
+        payeeIdentityNo: data.payeeIdentityNo?.trim() || null,
+        invoiceNo: data.invoiceNo?.trim() || null,
+        notes: noteParts.length ? noteParts.join(" · ") : null,
       },
     });
     await pushFinanceEventToOkul(
@@ -150,11 +155,15 @@ export async function createCashbookExpenseAction(
 }
 
 export async function deleteCashbookEntryAction(formData: FormData): Promise<void> {
-  const id = String(formData.get("id") ?? "");
-  const yearMonth = String(formData.get("yearMonth") ?? "");
+  const id = String(formData.get("id") ?? "").trim();
+  const yearMonth = String(formData.get("yearMonth") ?? "").trim();
+  if (!id || id.includes(":")) return; // plan:… gibi sanal satırlar silinmez
+
   const ctx = await requireOperations();
-  await ctx.db.cashbookEntry.deleteMany({ where: { id } });
+  const deleted = await ctx.db.cashbookEntry.deleteMany({ where: { id } });
+  if (deleted.count === 0) return;
+
   await pushFinanceEventToOkul("cashbook_entry.deleted", ctx.tenantId, { id });
+  revalidatePath("/monthly");
   if (yearMonth) revalidateMonth(yearMonth);
-  else revalidatePath("/monthly");
 }

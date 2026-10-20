@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MiniForm } from "@/components/action-form";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui";
 import { deleteCashbookEntryAction } from "@/app/actions/cashbook";
 import { CASHBOOK_CHANNEL_TR, INCOME_CATEGORY_TR } from "@/lib/cashbook";
@@ -73,6 +73,8 @@ export function CashbookPanel({
   plannedTotal?: number;
 }) {
   const [selected, setSelected] = useState<CashbookRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
   const isIncome = side === "INCOME";
 
   const channelDisplay = selected
@@ -80,6 +82,35 @@ export function CashbookPanel({
       ? CASHBOOK_CHANNEL_TR[selected.channel] ?? selected.channelLabel
       : selected.channelLabel
     : "";
+
+  async function handleDelete() {
+    if (!selected?.deletable || deleting) return;
+    if (!window.confirm("Bu kaydı silmek istediğinize emin misiniz?")) return;
+    setDeleting(true);
+    try {
+      const fd = new FormData();
+      fd.set("id", selected.id);
+      fd.set("yearMonth", month);
+      await deleteCashbookEntryAction(fd);
+      setSelected(null);
+      router.refresh();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function parseRequester(notes: string | null | undefined): string | null {
+    if (!notes) return null;
+    const m = notes.match(/Talep eden:\s*([^·]+)/i);
+    return m?.[1]?.trim() || null;
+  }
+
+  function notesWithoutRequester(notes: string | null | undefined): string | null {
+    const cleaned = humanizeNotes(notes);
+    if (!cleaned) return null;
+    const without = cleaned.replace(/Talep eden:\s*[^·]+/i, "").replace(/^\s*[·]\s*|\s*[·]\s*$/g, "").trim();
+    return without || null;
+  }
 
   return (
     <>
@@ -207,7 +238,8 @@ export function CashbookPanel({
                   </>
                 ) : (
                   <>
-                    <DetailRow label="Harcama kalemi" value={selected.expenseTitle} />
+                    <DetailRow label="Alınan ürün" value={selected.expenseTitle} />
+                    <DetailRow label="Talep eden" value={parseRequester(selected.notes)} />
                     <DetailRow label="Vergi no / TC" value={selected.payeeIdentityNo} />
                     <DetailRow label="Fatura no" value={selected.invoiceNo} />
                   </>
@@ -219,7 +251,10 @@ export function CashbookPanel({
                     selected.checkInstallments != null ? String(selected.checkInstallments) : null
                   }
                 />
-                <DetailRow label="Açıklama" value={humanizeNotes(selected.notes)} />
+                <DetailRow
+                  label="Açıklama"
+                  value={isIncome ? humanizeNotes(selected.notes) : notesWithoutRequester(selected.notes)}
+                />
               </dl>
             </div>
 
@@ -232,17 +267,14 @@ export function CashbookPanel({
                 <span />
               )}
               {canWrite && selected.deletable ? (
-                <MiniForm action={deleteCashbookEntryAction}>
-                  <input type="hidden" name="id" value={selected.id} />
-                  <input type="hidden" name="yearMonth" value={month} />
-                  <button
-                    type="submit"
-                    className="rounded-lg px-2 py-1 text-sm text-red-600 transition hover:bg-red-50"
-                    onClick={() => setSelected(null)}
-                  >
-                    Kaydı sil
-                  </button>
-                </MiniForm>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  className="rounded-lg px-2 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                  onClick={() => void handleDelete()}
+                >
+                  {deleting ? "Siliniyor…" : "Kaydı sil"}
+                </button>
               ) : null}
             </div>
           </div>
