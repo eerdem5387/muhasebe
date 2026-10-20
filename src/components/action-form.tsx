@@ -32,7 +32,7 @@ export function ActionForm({
   }, [state.success, onSuccess, modalClose]);
 
   return (
-    <form action={formAction} encType="multipart/form-data" className={className ?? "space-y-4"}>
+    <form action={formAction} encType="multipart/form-data" className={className ?? "min-w-0 space-y-4"}>
       <FormError message={state.error} />
       <FormSuccess message={state.success} />
       {children}

@@ -39,13 +39,15 @@ export function FormModal({
     };
   }, [open]);
 
+  const maxW = size === "lg" ? "max-w-xl" : "max-w-lg";
+
   return (
     <>
       <button type="button" className={buttonClassName} onClick={() => setOpen(true)}>
         {buttonLabel}
       </button>
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-x-hidden overflow-y-auto p-3 sm:p-4 sm:items-center">
           <button
             type="button"
             aria-label="Kapat"
@@ -56,18 +58,16 @@ export function FormModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className={`relative z-10 my-4 w-full rounded-2xl border border-ink-200/80 bg-white p-6 shadow-lift ${
-              size === "lg" ? "max-w-2xl" : "max-w-lg"
-            }`}
+            className={`relative z-10 my-2 flex w-full min-w-0 max-h-[min(92vh,56rem)] flex-col overflow-hidden rounded-2xl border border-ink-200/80 bg-white shadow-lift ${maxW}`}
           >
-            <div className="mb-5 flex items-start justify-between gap-3 border-b border-ink-100 pb-4">
-              <h2 id={titleId} className="text-lg font-semibold tracking-tight text-ink-950">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-ink-100 px-4 py-3.5 sm:px-5">
+              <h2 id={titleId} className="min-w-0 text-lg font-semibold tracking-tight text-ink-950">
                 {title}
               </h2>
               <button
                 type="button"
                 onClick={close}
-                className="rounded-xl px-2.5 py-1.5 text-ink-400 transition hover:bg-ink-100 hover:text-ink-700"
+                className="shrink-0 rounded-xl px-2.5 py-1.5 text-ink-400 transition hover:bg-ink-100 hover:text-ink-700"
                 aria-label="Kapat"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -75,7 +75,9 @@ export function FormModal({
                 </svg>
               </button>
             </div>
-            <ModalCloseContext.Provider value={close}>{children}</ModalCloseContext.Provider>
+            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+              <ModalCloseContext.Provider value={close}>{children}</ModalCloseContext.Provider>
+            </div>
           </div>
         </div>
       ) : null}

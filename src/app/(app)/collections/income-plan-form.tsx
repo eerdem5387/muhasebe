@@ -212,7 +212,7 @@ export function IncomePlanCreateModal({
               autoComplete="off"
             />
             <input type="hidden" name="enrollmentId" value={enrollmentId} />
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-ink-200">
+            <div className="max-h-40 min-w-0 overflow-x-hidden overflow-y-auto rounded-lg border border-ink-200">
               {filteredStudents.map((s) => {
                 const active = s.enrollmentId === enrollmentId;
                 const channelLabel = CHANNEL_TR[s.paymentChannel] ?? s.paymentChannel;
@@ -220,22 +220,24 @@ export function IncomePlanCreateModal({
                   <button
                     key={s.enrollmentId}
                     type="button"
-                    className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-ink-50 ${
+                    className={`flex w-full min-w-0 items-start justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-ink-50 ${
                       active ? "bg-brand-50 text-brand-800" : "text-ink-700"
                     }`}
                     onClick={() => selectStudent(s)}
                   >
-                    <span className="min-w-0">
-                      <span className="block font-medium">
+                    <span className="min-w-0 flex-1 overflow-hidden">
+                      <span className="block truncate font-medium">
                         {s.fullName}
                         {s.classroom ? ` · ${s.classroom}` : ""}
                       </span>
-                      <span className={`mt-0.5 block text-xs ${active ? "text-brand-700" : "text-ink-500"}`}>
+                      <span className={`mt-0.5 block truncate text-xs ${active ? "text-brand-700" : "text-ink-500"}`}>
                         {channelLabel}
                         {s.sourcePaymentPlan ? ` · ${s.sourcePaymentPlan}` : ""}
                       </span>
                     </span>
-                    <span className="shrink-0 font-medium">{fmtMoney(s.annualFee)}</span>
+                    <span className="shrink-0 tabular-nums text-xs font-medium sm:text-sm">
+                      {fmtMoney(s.annualFee)}
+                    </span>
                   </button>
                 );
               })}
@@ -288,17 +290,17 @@ export function IncomePlanCreateModal({
           <input id="planDate" name="planDate" type="date" className="input" defaultValue={todayISO()} required />
         </div>
 
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
+        <div className="min-w-0 space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">Ödeme yöntemleri</p>
               <p className="text-xs text-ink-500">
-                Örn. 50.000 nakit + kalanı kredi kartı — her kanal ayrı plan satırı oluşturur.
+                Örn. 50.000 nakit + kalanı kredi kartı.
               </p>
             </div>
             <button
               type="button"
-              className="btn-secondary !py-1.5 text-xs"
+              className="btn-secondary !py-1.5 text-xs sm:shrink-0"
               onClick={() =>
                 setPayments((rows) => [
                   ...rows,
@@ -327,7 +329,7 @@ export function IncomePlanCreateModal({
                     : null;
 
             return (
-              <div key={pay.key} className="space-y-3 rounded-xl border border-ink-200 bg-ink-50/60 p-3">
+              <div key={pay.key} className="min-w-0 space-y-3 rounded-xl border border-ink-200 bg-ink-50/60 p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-ink-800">Ödeme #{index + 1}</p>
                   {payments.length > 1 ? (
@@ -341,8 +343,8 @@ export function IncomePlanCreateModal({
                   ) : null}
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
+                <div className="grid min-w-0 grid-cols-1 gap-3">
+                  <div className="min-w-0">
                     <label className="label" htmlFor={`ch-${pay.key}`}>Ödeme kanalı</label>
                     <select
                       id={`ch-${pay.key}`}
@@ -361,7 +363,7 @@ export function IncomePlanCreateModal({
                     </select>
                     {ecomHint ? <p className="mt-1 text-xs text-brand-700">{ecomHint}</p> : null}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label className="label" htmlFor={`amt-${pay.key}`}>Tutar</label>
                     <input
                       id={`amt-${pay.key}`}
@@ -374,8 +376,8 @@ export function IncomePlanCreateModal({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="min-w-0">
                     <label className="label" htmlFor={`inst-${pay.key}`}>Taksit sayısı</label>
                     <input
                       id={`inst-${pay.key}`}
@@ -390,7 +392,7 @@ export function IncomePlanCreateModal({
                       readOnly={ecomMode}
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label className="label" htmlFor={`blk-${pay.key}`}>Bloke (gün)</label>
                     <input
                       id={`blk-${pay.key}`}
@@ -405,7 +407,7 @@ export function IncomePlanCreateModal({
                       readOnly={ecomMode}
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0 sm:col-span-2">
                     <label className="label" htmlFor={`bank-${pay.key}`}>Banka (opsiyonel)</label>
                     <input
                       id={`bank-${pay.key}`}
@@ -421,7 +423,7 @@ export function IncomePlanCreateModal({
           })}
 
           <div
-            className={`rounded-xl px-3 py-2 text-sm ${
+            className={`rounded-xl px-3 py-2 text-xs leading-relaxed sm:text-sm ${
               sumMatches
                 ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100"
                 : "bg-amber-50 text-amber-900 ring-1 ring-amber-100"
