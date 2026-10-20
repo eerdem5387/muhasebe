@@ -5,6 +5,7 @@ import { bookedTotal, loadMonthlyLedger, plannedTotal } from "@/server/monthly-l
 import { MonthToolbar } from "./month-toolbar";
 import { IncomeAddModal, ExpenseAddModal } from "./entry-form";
 import { CashbookPanel } from "./cashbook-panel";
+import { ChannelSpendCard } from "./channel-spend";
 
 function parseMonth(raw: string | undefined): string {
   if (raw && /^\d{4}-\d{2}$/.test(raw)) return raw;
@@ -103,6 +104,8 @@ export default async function MonthlyReportPage({
           ) : null}
         </div>
       </div>
+
+      <ChannelSpendCard expenseRows={expenseRows} />
     </div>
   );
 }
