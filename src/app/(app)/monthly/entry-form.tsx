@@ -306,21 +306,92 @@ export function IncomeAddModal({
   );
 }
 
+/** Okul gider kalemleri — Ürün her zaman ilk sırada. */
+const EXPENSE_KIND_OPTIONS = [
+  "Ürün",
+  "Hizmet",
+  "Maaş / ücret",
+  "SGK / personel primleri",
+  "Kira",
+  "Elektrik",
+  "Su",
+  "Doğalgaz / ısınma",
+  "İnternet / telefon",
+  "Temizlik",
+  "Kırtasiye",
+  "Yemek / mutfak",
+  "Ulaşım / servis",
+  "Bakım / onarım",
+  "Donanım / teknik",
+  "Yazılım / lisans",
+  "Eğitim materyali",
+  "Gezi / etkinlik",
+  "Reklam / pazarlama",
+  "Sigorta",
+  "Vergi / harç / resmi ödemeler",
+  "Muhasebe / danışmanlık",
+  "Hukuk",
+  "Güvenlik",
+  "Mobilya",
+  "Bina / tadilat",
+  "Banka / komisyon",
+  "Diğer",
+] as const;
+
 export function ExpenseAddModal({ month }: { month: string }) {
   const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
+  const [kind, setKind] = useState<(typeof EXPENSE_KIND_OPTIONS)[number]>("Ürün");
+  const [productName, setProductName] = useState("");
+  const isProduct = kind === "Ürün";
+  const expenseTitle = isProduct
+    ? productName.trim()
+      ? `Ürün · ${productName.trim()}`
+      : ""
+    : kind;
 
   return (
     <FormModal buttonLabel="Gider ekle" title="Gider ekle" buttonClassName="btn-secondary !py-1.5 text-xs" size="lg">
       <ActionForm action={createCashbookExpenseAction} submitLabel="Kaydet">
         <input type="hidden" name="yearMonth" value={month} />
+        <input type="hidden" name="expenseTitle" value={expenseTitle} />
         <div>
           <label className="label" htmlFor="expense-requester">Talep eden</label>
           <input id="expense-requester" name="requesterName" className="input" required placeholder="Ad soyad" />
         </div>
         <div>
-          <label className="label" htmlFor="expense-title">Harcama yapılan (ürün, hizmet, maaş, vb)</label>
-          <input id="expense-title" name="expenseTitle" className="input" required />
+          <label className="label" htmlFor="expense-kind">Harcama yapılan</label>
+          <select
+            id="expense-kind"
+            className="input"
+            value={kind}
+            onChange={(e) => {
+              const next = e.target.value as (typeof EXPENSE_KIND_OPTIONS)[number];
+              setKind(next);
+              if (next !== "Ürün") setProductName("");
+            }}
+            required
+          >
+            {EXPENSE_KIND_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
         </div>
+        {isProduct ? (
+          <div>
+            <label className="label" htmlFor="expense-product">Ürün adı</label>
+            <input
+              id="expense-product"
+              className="input"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              placeholder="Örn. mikrofon, projeksiyon, yazıcı toneri"
+              required
+              minLength={2}
+            />
+          </div>
+        ) : null}
         <div>
           <label className="label" htmlFor="payee-id">Ödeme yapılan (vergi no veya TC)</label>
           <input id="payee-id" name="payeeIdentityNo" className="input" inputMode="numeric" maxLength={11} required />
