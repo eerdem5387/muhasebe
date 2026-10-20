@@ -44,7 +44,7 @@ export default async function MonthlyReportPage({
         />
       </div>
 
-      <div className="monthly-report overflow-hidden card">
+      <div className="monthly-report overflow-hidden">
         <div className="border-b-2 border-slate-800 px-4 py-4 text-center">
           <p className="text-sm font-semibold tracking-wide text-slate-500">{ctx.tenantName}</p>
           <h2 className="mt-1 text-xl font-bold uppercase tracking-wide text-slate-900">

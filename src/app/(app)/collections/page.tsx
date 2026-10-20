@@ -102,22 +102,22 @@ export default async function IncomePlanPage() {
           for (const r of rows) totals[r.liveStatus] += Number(r.amount);
           return (
             <section key={ym} className="overflow-hidden card">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
-                <h2 className="font-semibold text-slate-800">{fmtMonth(ym)}</h2>
-                <p className="text-xs text-slate-500">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 bg-ink-50/80 px-4 py-3.5">
+                <h2 className="font-semibold tracking-tight text-ink-900">{fmtMonth(ym)}</h2>
+                <p className="text-xs text-ink-500">
                   Bloke {fmtMoney(totals.BLOCKED)} · Beklenen {fmtMoney(totals.EXPECTED)} · Gerçekleşen{" "}
                   {fmtMoney(totals.REALIZED)}
                 </p>
               </div>
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400">
-                    <th className="px-4 py-2">Kalem / Öğrenci</th>
-                    <th className="px-4 py-2">Kanal</th>
-                    <th className="px-4 py-2">Taksit</th>
-                    <th className="px-4 py-2 text-right">Tutar</th>
-                    <th className="px-4 py-2">Serbest</th>
-                    <th className="px-4 py-2">Durum</th>
+                  <tr className="border-b border-ink-100 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    <th className="px-4 py-2.5">Kalem / Öğrenci</th>
+                    <th className="px-4 py-2.5">Kanal</th>
+                    <th className="px-4 py-2.5">Taksit</th>
+                    <th className="px-4 py-2.5 text-right">Tutar</th>
+                    <th className="px-4 py-2.5">Serbest</th>
+                    <th className="px-4 py-2.5">Durum</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">

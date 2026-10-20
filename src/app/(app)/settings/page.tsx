@@ -35,14 +35,14 @@ export default async function SettingsPage() {
       <PageHeader title="Ayarlar" description="Kalemler, kredi kartı anlaşmaları ve kullanıcılar." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card p-5 lg:col-span-2">
-          <h2 className="mb-1 font-semibold text-slate-900">Okul kaydından öğrenci çek</h2>
-          <p className="mb-4 text-sm text-slate-600">
+          <h2 className="mb-1 font-semibold tracking-tight text-ink-950">Okul kaydından öğrenci çek</h2>
+          <p className="mb-4 text-sm text-ink-600">
             Diğer projeden yalnızca öğrenci adı, sınıf, veli telefonu ve sözleşme ücreti alınır.
             Tahsilat ve ödeme yöntemi bu programda tutulur; kaynak veritabanına hiçbir şey yazılmaz.
             Listeyi güncellemek için <strong>Okuldan çek</strong> butonunu kullanın.
           </p>
           {lastSync ? (
-            <p className="mb-4 text-sm text-slate-500">
+            <p className="mb-4 text-sm text-ink-500">
               Son çekim: {fmtDateTime(lastSync.finishedAt ?? lastSync.startedAt)}
               {" · "}
               {lastSync.ok
@@ -50,16 +50,16 @@ export default async function SettingsPage() {
                 : lastSync.error ?? "hata"}
             </p>
           ) : (
-            <p className="mb-4 text-sm text-slate-500">Henüz çekim yapılmadı.</p>
+            <p className="mb-4 text-sm text-ink-500">Henüz çekim yapılmadı.</p>
           )}
           <ActionForm action={runSchoolSyncAction} submitLabel="Şimdi çek">
-            <p className="text-xs text-slate-400">Bu işlem birkaç saniye sürebilir.</p>
+            <p className="text-xs text-ink-400">Bu işlem birkaç saniye sürebilir.</p>
           </ActionForm>
         </div>
         {ctx.isSuperAdmin && (
           <div className="card border-amber-200 bg-amber-50/40 p-5 lg:col-span-2">
-            <h2 className="mb-1 font-semibold text-slate-900">Yeni okul / şirket + yönetici</h2>
-            <p className="mb-4 text-sm text-slate-600">
+            <h2 className="mb-1 font-semibold text-ink-900">Yeni okul / şirket + yönetici</h2>
+            <p className="mb-4 text-sm text-ink-600">
               Süper admin olarak yeni bir okul oluşturur ve o okul için yönetici (şirket kullanıcısı) hesabı açar.
             </p>
             <ActionForm action={createSchoolWithAdminAction} submitLabel="Okul ve yönetici oluştur">
@@ -87,7 +87,7 @@ export default async function SettingsPage() {
 
         <div className="card p-5">
           <h2 className="mb-4 font-semibold">Gelir / gider kalemleri</h2>
-          <ul className="mb-4 divide-y divide-slate-100 text-sm">
+          <ul className="mb-4 divide-y divide-ink-100 text-sm">
             {categories.map((c) => (
               <li key={c.id} className="flex items-center justify-between py-2">
                 <span>{c.type === "EXPENSE" ? "Gider" : "Gelir"} · {c.name}</span>
@@ -115,7 +115,7 @@ export default async function SettingsPage() {
 
         <div className="card p-5">
           <h2 className="mb-4 font-semibold">Kredi kartı banka anlaşmaları</h2>
-          <ul className="mb-4 divide-y divide-slate-100 text-sm">
+          <ul className="mb-4 divide-y divide-ink-100 text-sm">
             {banks.map((b) => (
               <li key={b.id} className="flex items-center justify-between py-2">
                 <span>{b.bankName} · bloke {b.blockDays} gün</span>
@@ -140,9 +140,9 @@ export default async function SettingsPage() {
 
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-1 font-semibold">Bu okulun kullanıcıları</h2>
-          <p className="mb-4 text-sm text-slate-500">{ctx.tenantName} için muhasebe / müdür / kurucu hesapları.</p>
+          <p className="mb-4 text-sm text-ink-500">{ctx.tenantName} için muhasebe / müdür / kurucu hesapları.</p>
           <table className="mb-4 w-full">
-            <thead className="border-b border-slate-200 bg-slate-50">
+            <thead className="border-b border-ink-200 bg-ink-50">
               <tr>
                 <th className="th">Ad</th>
                 <th className="th">E-posta</th>
@@ -150,7 +150,7 @@ export default async function SettingsPage() {
                 <th className="th"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-ink-100">
               {memberships.map((m) => (
                 <tr key={m.id}>
                   <td className="td">

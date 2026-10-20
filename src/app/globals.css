@@ -4,36 +4,47 @@
 
 :root {
   color-scheme: light;
+  --surface: #ffffff;
+  --surface-muted: #f4f6fa;
+  --border: #e4e8f0;
+  --ring: rgba(31, 92, 224, 0.28);
 }
 
 body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+  @apply bg-ink-50 font-sans text-ink-800 antialiased;
+  background-image: theme("backgroundImage.app-mesh");
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2
+      disabled:cursor-not-allowed disabled:opacity-55;
   }
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+    @apply btn bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-800;
   }
   .btn-secondary {
-    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-100;
+    @apply btn border border-ink-200 bg-white text-ink-700 shadow-sm hover:border-ink-300 hover:bg-ink-50;
   }
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700;
+    @apply btn bg-red-600 text-white shadow-sm hover:bg-red-700;
   }
   .input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200;
+    @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 shadow-sm
+      outline-none transition placeholder:text-ink-400
+      focus:border-brand-500 focus:ring-2 focus:ring-[var(--ring)];
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-slate-700;
+    @apply mb-1.5 block text-sm font-medium text-ink-700;
   }
   .card {
-    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+    @apply rounded-2xl border border-ink-200/80 bg-white shadow-soft;
   }
   .badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-tight;
   }
   .th {
     @apply whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
@@ -41,11 +52,35 @@ body {
   .td {
     @apply whitespace-nowrap px-4 py-3 text-sm text-slate-700;
   }
+
+  .nav-link {
+    @apply flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500;
+  }
+  .nav-link-active {
+    @apply bg-brand-600 text-white shadow-sm;
+  }
+  .nav-link-idle {
+    @apply text-ink-600 hover:bg-ink-100 hover:text-ink-900;
+  }
+}
+
+/* Aylık gelir-gider tablosu: mevcut “rapor” görünümü korunur */
+.monthly-report {
+  @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  background-image: none;
+}
+.monthly-report .th {
+  @apply whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700;
+}
+.monthly-report .td {
+  @apply whitespace-nowrap px-4 py-3 text-sm text-slate-700;
 }
 
 @media print {
   body {
     background: white !important;
+    background-image: none !important;
   }
   aside,
   .print\:hidden {

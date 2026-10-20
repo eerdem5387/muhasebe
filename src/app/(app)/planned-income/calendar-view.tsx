@@ -58,33 +58,33 @@ export function PlannedIncomeCalendar({
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+      <div className="card overflow-hidden">
+        <div className="flex items-center justify-between gap-2 border-b border-ink-100 px-4 py-3.5">
           <Link
             href={`/planned-income?month=${prev}`}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-slate-600 hover:bg-slate-100"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-lg text-ink-600 transition hover:bg-ink-100"
             aria-label="Önceki ay"
           >
             ‹
           </Link>
           <div className="text-center">
-            <p className="text-base font-semibold capitalize text-slate-900">{fmtMonth(month)}</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-base font-semibold capitalize tracking-tight text-ink-950">{fmtMonth(month)}</p>
+            <p className="text-xs text-ink-500">
               {events.length} kalem · Plan {fmtMoney(plannedSum)} · Geçen {fmtMoney(creditedSum)}
             </p>
           </div>
           <Link
             href={`/planned-income?month=${next}`}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-slate-600 hover:bg-slate-100"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-lg text-ink-600 transition hover:bg-ink-100"
             aria-label="Sonraki ay"
           >
             ›
           </Link>
         </div>
 
-        <div className="grid grid-cols-7 border-b border-slate-100 px-2 pt-2">
+        <div className="grid grid-cols-7 border-b border-ink-100 px-2 pt-2">
           {WEEKDAYS.map((d) => (
-            <div key={d} className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <div key={d} className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-ink-400">
               {d}
             </div>
           ))}
@@ -108,7 +108,7 @@ export function PlannedIncomeCalendar({
                 onClick={() => setSelected(cell.date!)}
                 className={clsx(
                   "flex h-12 flex-col items-center justify-start rounded-xl pt-1.5 transition",
-                  isSelected ? "bg-brand-600 text-white shadow-sm" : "hover:bg-slate-50 text-slate-800",
+                  isSelected ? "bg-brand-600 text-white shadow-sm" : "text-ink-800 hover:bg-ink-50",
                 )}
               >
                 <span
@@ -133,10 +133,10 @@ export function PlannedIncomeCalendar({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Seçili gün</p>
-          <h2 className="mt-0.5 text-base font-semibold text-slate-900">
+      <div className="card overflow-hidden">
+        <div className="border-b border-ink-100 px-4 py-3.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-400">Seçili gün</p>
+          <h2 className="mt-0.5 text-base font-semibold tracking-tight text-ink-950">
             {new Intl.DateTimeFormat("tr-TR", {
               weekday: "long",
               day: "numeric",
@@ -146,27 +146,27 @@ export function PlannedIncomeCalendar({
         </div>
 
         {dayEvents.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-slate-400">Bu gün planlanmış gelir yok.</p>
+          <p className="px-4 py-8 text-center text-sm text-ink-400">Bu gün planlanmış gelir yok.</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-ink-100">
             {dayEvents.map((e) => (
               <li key={e.id} className="px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-medium text-slate-900">{e.title}</p>
+                      <p className="truncate font-medium text-ink-900">{e.title}</p>
                       <Badge color={e.status === "CREDITED" ? "green" : "amber"}>
                         {e.status === "CREDITED" ? "Hesaba geçti" : "Planlanmış"}
                       </Badge>
                     </div>
-                    <p className="mt-0.5 text-xs text-slate-500">
+                    <p className="mt-0.5 text-xs text-ink-500">
                       {e.source} · {e.channel}
                     </p>
                   </div>
-                  <p className="shrink-0 text-sm font-semibold text-slate-900">{fmtMoney(e.amount)}</p>
+                  <p className="shrink-0 text-sm font-semibold tabular-nums text-ink-900">{fmtMoney(e.amount)}</p>
                 </div>
                 {e.href ? (
-                  <Link href={e.href} className="mt-2 inline-block text-xs font-medium text-brand-700 hover:underline">
+                  <Link href={e.href} className="mt-2 inline-block text-xs font-semibold text-brand-700 hover:underline">
                     Detaya git →
                   </Link>
                 ) : null}
@@ -176,7 +176,7 @@ export function PlannedIncomeCalendar({
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-4 text-xs text-slate-500">
+      <div className="flex items-center justify-center gap-4 text-xs text-ink-500">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-amber-500" /> Planlanmış
         </span>

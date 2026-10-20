@@ -88,7 +88,7 @@ export function StudentFinancePanel({
 }) {
   if (!enrollment) {
     return (
-      <div className="card p-8 text-sm text-slate-500">
+      <div className="card p-8 text-sm text-ink-500">
         Bu öğrenci için henüz yıllık kayıt ücreti yok. Kayıt durumu: {REGISTRATION_TR[registrationStatus]}.
       </div>
     );
@@ -107,21 +107,21 @@ export function StudentFinancePanel({
         <SummaryCard label="Alınacak yöntem" value={CHANNEL_TR[enrollment.paymentChannel] ?? enrollment.paymentChannel} hint={enrollment.sourcePaymentPlan || "Sözleşme planı yok"} />
       </div>
 
-      <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+      <div className="h-2.5 overflow-hidden rounded-full bg-ink-100 ring-1 ring-ink-100">
         <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${pct}%` }} />
       </div>
 
       <div className="card p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Kayıt durumu</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">Kayıt durumu</p>
             <div className="mt-1">
               <Badge color={registrationColor[registrationStatus]}>{REGISTRATION_TR[registrationStatus]}</Badge>
             </div>
-            {enrollment.contractNo ? <p className="mt-2 text-xs text-slate-400">Sözleşme no: {enrollment.contractNo}</p> : null}
+            {enrollment.contractNo ? <p className="mt-2 text-xs text-ink-400">Sözleşme no: {enrollment.contractNo}</p> : null}
           </div>
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Ödeme durumu</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">Ödeme durumu</p>
             {canWrite ? (
               <div className="flex flex-wrap gap-2">
                 {(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"] as const).map((value) => (
@@ -157,10 +157,10 @@ export function StudentFinancePanel({
       </div>
 
       <div className="card overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 px-5 py-4">
           <div>
-            <h2 className="font-semibold text-slate-900">Ödeme planı</h2>
-            <p className="text-sm text-slate-500">Alınan, devam eden ve ileri tarihli planlanan ödemeler.</p>
+            <h2 className="font-semibold text-ink-900">Ödeme planı</h2>
+            <p className="text-sm text-ink-500">Alınan, devam eden ve ileri tarihli planlanan ödemeler.</p>
           </div>
           {canWrite && (
             <div className="flex flex-wrap gap-2">
@@ -212,7 +212,7 @@ export function StudentFinancePanel({
           )}
         </div>
         <table className="w-full">
-          <thead className="border-b border-slate-200 bg-slate-50">
+          <thead className="border-b border-ink-200 bg-ink-50">
             <tr>
               <th className="th">#</th>
               <th className="th">Tarih</th>
@@ -222,7 +222,7 @@ export function StudentFinancePanel({
               {canWrite && <th className="th"></th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-ink-100">
             {enrollment.scheduleLines.map((line) => {
               const future = new Date(line.releaseDate).getTime() > Date.now();
               const label = line.status === "REALIZED" ? "Alındı" : future ? "Planlandı" : "Bekliyor";
@@ -249,19 +249,19 @@ export function StudentFinancePanel({
               );
             })}
             {enrollment.scheduleLines.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={canWrite ? 6 : 5}>Henüz plan satırı yok.</td></tr>
+              <tr><td className="td text-ink-400" colSpan={canWrite ? 6 : 5}>Henüz plan satırı yok.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       <div className="card overflow-hidden">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="font-semibold text-slate-900">Alınan ödemeler</h2>
-          <p className="text-sm text-slate-500">Gerçekleşen tahsilatlar ve belgeler.</p>
+        <div className="border-b border-ink-200 px-5 py-4">
+          <h2 className="font-semibold text-ink-900">Alınan ödemeler</h2>
+          <p className="text-sm text-ink-500">Gerçekleşen tahsilatlar ve belgeler.</p>
         </div>
         <table className="w-full">
-          <thead className="border-b border-slate-200 bg-slate-50">
+          <thead className="border-b border-ink-200 bg-ink-50">
             <tr>
               <th className="th">Tarih</th>
               <th className="th text-right">Tutar</th>
@@ -270,7 +270,7 @@ export function StudentFinancePanel({
               {canWrite && <th className="th"></th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-ink-100">
             {enrollment.collections.map((c) => (
               <tr key={c.id}>
                 <td className="td">{fmtDate(c.collectedAt)}</td>
@@ -278,11 +278,11 @@ export function StudentFinancePanel({
                 <td className="td">{CHANNEL_TR[c.paymentChannel]}</td>
                 <td className="td">
                   {c.attachments.length === 0
-                    ? <span className="text-slate-400">—</span>
+                    ? <span className="text-ink-400">—</span>
                     : c.attachments.map((a) => (
                       <a key={a.id} href={`/api/attachments/${a.id}`} className="mr-2 text-brand-600 underline" target="_blank">{a.filename}</a>
                     ))}
-                  {c.notes ? <span className="block text-xs text-slate-400">{c.notes}</span> : null}
+                  {c.notes ? <span className="block text-xs text-ink-400">{c.notes}</span> : null}
                 </td>
                 {canWrite && (
                   <td className="td text-right">
@@ -296,7 +296,7 @@ export function StudentFinancePanel({
               </tr>
             ))}
             {enrollment.collections.length === 0 && (
-              <tr><td className="td text-slate-400" colSpan={canWrite ? 5 : 4}>Henüz ödeme alınmadı.</td></tr>
+              <tr><td className="td text-ink-400" colSpan={canWrite ? 5 : 4}>Henüz ödeme alınmadı.</td></tr>
             )}
           </tbody>
         </table>
@@ -307,10 +307,10 @@ export function StudentFinancePanel({
 
 function SummaryCard({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <div className="card p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{hint}</p>
+    <div className="card p-5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-400">{label}</p>
+      <p className="mt-1.5 text-xl font-bold tracking-tight text-ink-950">{value}</p>
+      <p className="mt-1 text-xs text-ink-500">{hint}</p>
     </div>
   );
 }

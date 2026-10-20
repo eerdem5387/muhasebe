@@ -32,8 +32,8 @@ export function RequestDateFilter({
   const filtered = Boolean(date);
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Gün</span>
+    <div className="card mb-4 flex flex-wrap items-center gap-2 px-4 py-3">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-400">Gün</span>
       {filtered ? (
         <>
           <Link href={`/requests?date=${shiftDay(active, -1)}`} className="btn-secondary !px-2.5 !py-1 text-xs">
@@ -41,7 +41,7 @@ export function RequestDateFilter({
           </Link>
           <input
             type="date"
-            className="input !w-auto !py-1 text-sm"
+            className="input !w-auto !py-1.5 text-sm"
             value={active}
             onChange={(e) => {
               const v = e.target.value;
@@ -51,20 +51,20 @@ export function RequestDateFilter({
           <Link href={`/requests?date=${shiftDay(active, 1)}`} className="btn-secondary !px-2.5 !py-1 text-xs">
             ›
           </Link>
-          <span className="hidden text-sm text-slate-600 sm:inline">{formatTr(active)}</span>
-          <Link href="/requests" className="ml-auto text-xs font-medium text-brand-700 hover:underline">
+          <span className="hidden text-sm text-ink-600 sm:inline">{formatTr(active)}</span>
+          <Link href="/requests" className="ml-auto text-xs font-semibold text-brand-700 hover:underline">
             Tüm günler
           </Link>
         </>
       ) : (
         <>
-          <span className="text-sm text-slate-600">Tüm talepler</span>
-          <Link href={`/requests?date=${today}`} className="ml-auto btn-secondary !py-1 text-xs">
+          <span className="text-sm text-ink-600">Tüm talepler</span>
+          <Link href={`/requests?date=${today}`} className="ml-auto btn-secondary !py-1.5 text-xs">
             Bugüne filtrele
           </Link>
           <input
             type="date"
-            className="input !w-auto !py-1 text-sm"
+            className="input !w-auto !py-1.5 text-sm"
             defaultValue=""
             onChange={(e) => {
               if (e.target.value) router.push(`/requests?date=${e.target.value}`);

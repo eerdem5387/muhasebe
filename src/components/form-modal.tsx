@@ -49,26 +49,30 @@ export function FormModal({
           <button
             type="button"
             aria-label="Kapat"
-            className="absolute inset-0 bg-slate-900/40"
+            className="absolute inset-0 bg-ink-950/45 backdrop-blur-[2px]"
             onClick={close}
           />
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className={`relative z-10 my-4 w-full rounded-xl border border-slate-200 bg-white p-5 shadow-xl ${
+            className={`relative z-10 my-4 w-full rounded-2xl border border-ink-200/80 bg-white p-6 shadow-lift ${
               size === "lg" ? "max-w-2xl" : "max-w-lg"
             }`}
           >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <h2 id={titleId} className="text-lg font-semibold text-slate-900">{title}</h2>
+            <div className="mb-5 flex items-start justify-between gap-3 border-b border-ink-100 pb-4">
+              <h2 id={titleId} className="text-lg font-semibold tracking-tight text-ink-950">
+                {title}
+              </h2>
               <button
                 type="button"
                 onClick={close}
-                className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-xl px-2.5 py-1.5 text-ink-400 transition hover:bg-ink-100 hover:text-ink-700"
                 aria-label="Kapat"
               >
-                ✕
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
               </button>
             </div>
             <ModalCloseContext.Provider value={close}>{children}</ModalCloseContext.Provider>

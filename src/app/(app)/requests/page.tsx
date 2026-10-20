@@ -99,20 +99,20 @@ export default async function RequestsPage({
 
       <RequestDateFilter date={date} today={today} />
 
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {requests.map((r) => (
-          <div key={r.id} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm">
+          <div key={r.id} className="card px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-sm font-semibold text-slate-800">{r.title}</h2>
+                  <h2 className="truncate text-sm font-semibold text-ink-900">{r.title}</h2>
                   <Badge color={color[r.status]}>{STATUS_TR[r.status] ?? r.status}</Badge>
                 </div>
-                <p className="mt-0.5 text-xs text-slate-500">
+                <p className="mt-0.5 text-xs text-ink-500">
                   {fmtDate(r.createdAt)} · {r.requesterName} · {CHANNEL_TR[r.channel] ?? r.channel}
                   {r.notes ? ` · ${r.notes}` : ""}
                 </p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
+                <p className="mt-0.5 text-[11px] text-ink-400">
                   Kurucu: {r.founderApprovedAt ? "onayladı" : "bekliyor"}
                   {" · "}
                   Muhasebe:{" "}
@@ -124,7 +124,7 @@ export default async function RequestsPage({
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <p className="text-sm font-semibold text-slate-800">
+                <p className="text-sm font-semibold tabular-nums text-ink-900">
                   {r.total != null ? fmtMoney(Number(r.total)) : "—"}
                 </p>
                 {canWrite ? <DeleteRequestButton id={r.id} /> : null}
@@ -132,7 +132,7 @@ export default async function RequestsPage({
             </div>
 
             {r.status === "PENDING" && canWrite ? (
-              <div className="mt-2 flex flex-wrap gap-2 border-t border-slate-100 pt-2">
+              <div className="mt-2 flex flex-wrap gap-2 border-t border-ink-100 pt-2">
                 <MiniForm action={rejectRequestAction}>
                   <input type="hidden" name="id" value={r.id} />
                   <button className="btn-danger !py-1 text-xs">Reddet</button>
@@ -141,7 +141,7 @@ export default async function RequestsPage({
             ) : null}
 
             {r.status === "APPROVED" && canWrite ? (
-              <div className="mt-2 border-t border-slate-100 pt-2">
+              <div className="mt-2 border-t border-ink-100 pt-2">
                 <ActionForm action={completeExpenseRequestAction} submitLabel="Tamamla">
                   <input type="hidden" name="id" value={r.id} />
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -167,9 +167,9 @@ export default async function RequestsPage({
           </div>
         ))}
         {requests.length === 0 && (
-          <p className="text-sm text-slate-500">
+          <div className="rounded-2xl border border-dashed border-ink-200 bg-white/70 px-6 py-10 text-center text-sm text-ink-500">
             {date ? "Bu günde talep yok." : "Bekleyen talep yok."}
-          </p>
+          </div>
         )}
       </div>
     </div>

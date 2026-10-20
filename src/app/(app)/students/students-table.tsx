@@ -117,14 +117,14 @@ export function StudentsTable({
             <option value="COMPLETED">{PAYMENT_PROGRESS_TR.COMPLETED}</option>
           </select>
         </div>
-        <p className="pb-2 text-sm text-slate-500">
+        <p className="pb-2 text-sm text-ink-500">
           {activeYear} · {filtered.length} / {rows.length} öğrenci
         </p>
       </div>
 
       <div className="overflow-x-auto card">
         <table className="w-full">
-          <thead className="border-b border-slate-200 bg-slate-50">
+          <thead className="border-b border-ink-100 bg-ink-50/80">
             <tr>
               <th className="th">Öğrenci</th>
               <th className="th">Sınıf</th>
