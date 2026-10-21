@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { createEnrollmentAction } from "@/app/actions/students";
 import { ActionForm } from "@/components/action-form";
+import { MoneyInput } from "@/components/money-input";
 import { fmtMoney, todayISO, toYearMonth } from "@/lib/format";
+import { parseMoney } from "@/lib/money";
 
 interface Bank { id: string; bankName: string; blockDays: number }
 interface Student { id: string; fullName: string }
@@ -16,14 +18,14 @@ function addDays(iso: string, days: number) {
 
 export function EnrollmentForm({ students, banks }: { students: Student[]; banks: Bank[] }) {
   const [channel, setChannel] = useState("EFT");
-  const [fee, setFee] = useState("100000");
+  const [fee, setFee] = useState("100000.00");
   const [count, setCount] = useState("10");
   const [bankId, setBankId] = useState(banks[0]?.id ?? "");
   const [date, setDate] = useState(todayISO());
   const year = new Date().getFullYear();
 
   const preview = useMemo(() => {
-    const n = Number(fee.replace(",", ".")) || 0;
+    const n = parseMoney(fee) ?? 0;
     const inst = channel === "CREDIT_CARD" ? Math.max(1, Number(count) || 1) : 1;
     const bank = banks.find((b) => b.id === bankId);
     const block = channel === "CREDIT_CARD" ? (bank?.blockDays ?? 0) : 0;
@@ -57,10 +59,14 @@ export function EnrollmentForm({ students, banks }: { students: Student[]; banks
           <label className="label" htmlFor="enrolledAt">Kayıt tarihi</label>
           <input id="enrolledAt" name="enrolledAt" type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} required />
         </div>
-        <div>
-          <label className="label" htmlFor="annualFee">Yıllık ücret</label>
-          <input id="annualFee" name="annualFee" className="input" value={fee} onChange={(e) => setFee(e.target.value)} required />
-        </div>
+        <MoneyInput
+          id="annualFee"
+          name="annualFee"
+          label="Yıllık ücret"
+          value={fee}
+          onValueChange={setFee}
+          required
+        />
         <div>
           <label className="label" htmlFor="paymentChannel">Ödeme şekli</label>
           <select id="paymentChannel" name="paymentChannel" className="input" value={channel} onChange={(e) => setChannel(e.target.value)}>

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui";
 import { CHANNEL_TR, STATUS_TR, fmtDate, fmtMoney, todayISO } from "@/lib/format";
 import { RequestDateFilter } from "./date-filter";
 import { DeleteRequestButton } from "./delete-button";
+import { MoneyInput } from "@/components/money-input";
 
 const color = {
   PENDING: "amber",
@@ -145,10 +146,13 @@ export default async function RequestsPage({
                 <ActionForm action={completeExpenseRequestAction} submitLabel="Tamamla">
                   <input type="hidden" name="id" value={r.id} />
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                    <div>
-                      <label className="label !mb-1" htmlFor={`amount-${r.id}`}>Tutar</label>
-                      <input id={`amount-${r.id}`} name="amount" className="input !py-1.5 text-sm" required />
-                    </div>
+                    <MoneyInput
+                      id={`amount-${r.id}`}
+                      name="amount"
+                      label="Tutar"
+                      required
+                      inputClassName="!py-1.5 text-sm"
+                    />
                     <div>
                       <label className="label !mb-1" htmlFor={`occurredAt-${r.id}`}>Harcama tarihi</label>
                       <input

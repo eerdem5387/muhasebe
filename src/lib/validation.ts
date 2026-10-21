@@ -1,13 +1,15 @@
 import { z } from "zod";
+import { toMoneyCanonical } from "@/lib/money";
 
 const opt = z.string().trim().optional().or(z.literal(""));
+/** Tutar: 19350,50 / 19350.50 / 19.350,50 → "19350.50" */
 const decimalString = z
   .string()
   .trim()
-  .refine((v) => v !== "" && !Number.isNaN(Number(v.replace(",", "."))), {
-    message: "Geçerli bir sayı girin.",
+  .refine((v) => toMoneyCanonical(v) != null, {
+    message: "Geçerli bir tutar girin (örn. 19350,50).",
   })
-  .transform((v) => v.replace(",", "."));
+  .transform((v) => toMoneyCanonical(v)!);
 
 export const loginSchema = z.object({
   email: z.string().trim().email("Geçerli bir e-posta girin."),

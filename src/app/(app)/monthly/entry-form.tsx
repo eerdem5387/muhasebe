@@ -6,6 +6,7 @@ import { FormModal } from "@/components/form-modal";
 import { createCashbookExpenseAction, createCashbookIncomeAction } from "@/app/actions/cashbook";
 import { CASHBOOK_CHANNEL_TR } from "@/lib/cashbook";
 import { todayISO } from "@/lib/format";
+import { MoneyInput } from "@/components/money-input";
 
 export type CashbookStudentOption = {
   id: string;
@@ -309,16 +310,13 @@ export function IncomeAddModal({
                 </div>
               )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="label" htmlFor={`amt-${pay.key}`}>Tutar</label>
-                  <input
-                    id={`amt-${pay.key}`}
-                    className="input"
-                    value={pay.amount}
-                    onChange={(e) => updatePayment(pay.key, { amount: e.target.value })}
-                    required
-                  />
-                </div>
+                <MoneyInput
+                  id={`amt-${pay.key}`}
+                  label="Tutar"
+                  value={pay.amount}
+                  onValueChange={(c) => updatePayment(pay.key, { amount: c })}
+                  required
+                />
                 <div>
                   <label className="label" htmlFor={`date-${pay.key}`}>Tarih</label>
                   <input
@@ -472,10 +470,7 @@ export function ExpenseAddModal({ month }: { month: string }) {
 
         <ChannelFields idPrefix="expense" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="label" htmlFor="expense-amount">Tutar</label>
-            <input id="expense-amount" name="amount" className="input" required />
-          </div>
+          <MoneyInput id="expense-amount" name="amount" label="Tutar" required />
           <div>
             <label className="label" htmlFor="expense-date">Tarih</label>
             <input id="expense-date" name="occurredAt" type="date" className="input" defaultValue={defaultDay} required />

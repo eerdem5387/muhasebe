@@ -8,6 +8,8 @@ import {
   createIncomePlanCategoryAction,
 } from "@/app/actions/income-plans";
 import { CHANNEL_TR, todayISO, fmtMoney } from "@/lib/format";
+import { parseMoney, toMoneyCanonical } from "@/lib/money";
+import { MoneyInput } from "@/components/money-input";
 import { isEcommerceEligibleCategory, isEcomChannel, resolveEcomPlanRules } from "@/lib/ecommerce-channels";
 
 export type PlanCategoryOption = {
@@ -61,8 +63,7 @@ function newSlice(partial?: Partial<PaymentSlice>): PaymentSlice {
 }
 
 function parseAmount(raw: string): number {
-  const n = Number(String(raw).replace(",", ".").trim());
-  return Number.isFinite(n) ? n : 0;
+  return parseMoney(raw) ?? 0;
 }
 
 export function IncomePlanCreateModal({
@@ -142,14 +143,15 @@ export function IncomePlanCreateModal({
   function selectStudent(s: PlanStudentOption) {
     setEnrollmentId(s.enrollmentId);
     setStudentQuery(s.fullName);
-    setTargetAmount(String(s.annualFee));
+    const feeCanon = toMoneyCanonical(s.annualFee) ?? "0.00";
+    setTargetAmount(feeCanon);
     const ch = ["CREDIT_CARD", "EFT", "CHECK", "CASH"].includes(s.paymentChannel)
       ? s.paymentChannel
       : "CREDIT_CARD";
     setPayments([
       newSlice({
         channel: ch,
-        amount: String(s.annualFee),
+        amount: feeCanon,
         installmentCount: ch === "CASH" || ch === "EFT" ? 1 : 10,
         blockDays: ch === "CREDIT_CARD" ? 30 : 0,
       }),
@@ -166,11 +168,14 @@ export function IncomePlanCreateModal({
     })),
   );
 
-  const amountForSubmit = requiresStudent
-    ? canOverrideAmount
-      ? String(parseAmount(targetAmount) || lockedFee)
-      : String(lockedFee)
-    : String(parseAmount(targetAmount) || paymentsSum);
+  const amountForSubmit =
+    toMoneyCanonical(
+      requiresStudent
+        ? canOverrideAmount
+          ? parseAmount(targetAmount) || lockedFee
+          : lockedFee
+        : parseAmount(targetAmount) || paymentsSum,
+    ) ?? "0.00";
 
   return (
     <FormModal buttonLabel="Gelir planı ekle" title="Gelir planı oluştur" size="lg">
@@ -254,35 +259,28 @@ export function IncomePlanCreateModal({
               <p className="text-xs text-amber-700">Öğrenci seçimi zorunlu.</p>
             )}
             {canOverrideAmount ? (
-              <div>
-                <label className="label" htmlFor="amount-override">Plan tutarı (süper admin)</label>
-                <input
-                  id="amount-override"
-                  className="input"
-                  value={targetAmount}
-                  onChange={(e) => setTargetAmount(e.target.value)}
-                  required
-                />
-              </div>
+              <MoneyInput
+                id="amount-override"
+                label="Plan tutarı (süper admin)"
+                value={targetAmount}
+                onValueChange={setTargetAmount}
+                required
+              />
             ) : null}
           </div>
         ) : (
-          <div>
-            <label className="label" htmlFor="amount-override">Plan tutarı</label>
-            <input
-              id="amount-override"
-              className="input"
-              value={targetAmount}
-              onChange={(e) => {
-                const v = e.target.value;
-                setTargetAmount(v);
-                if (payments.length === 1) {
-                  setPayments((rows) => rows.map((r, i) => (i === 0 ? { ...r, amount: v } : r)));
-                }
-              }}
-              required
-            />
-          </div>
+          <MoneyInput
+            id="amount-override"
+            label="Plan tutarı"
+            value={targetAmount}
+            onValueChange={(v) => {
+              setTargetAmount(v);
+              if (payments.length === 1) {
+                setPayments((rows) => rows.map((r, i) => (i === 0 ? { ...r, amount: v } : r)));
+              }
+            }}
+            required
+          />
         )}
 
         <div>
@@ -306,7 +304,7 @@ export function IncomePlanCreateModal({
                   ...rows,
                   newSlice({
                     channel: "CREDIT_CARD",
-                    amount: remainder > 0 ? String(remainder) : "",
+                    amount: remainder > 0 ? toMoneyCanonical(remainder) ?? "" : "",
                     installmentCount: 10,
                     blockDays: 30,
                   }),
@@ -374,17 +372,13 @@ export function IncomePlanCreateModal({
                     </select>
                     {ecomHint ? <p className="mt-1 text-xs text-brand-700">{ecomHint}</p> : null}
                   </div>
-                  <div className="min-w-0">
-                    <label className="label" htmlFor={`amt-${pay.key}`}>Tutar</label>
-                    <input
-                      id={`amt-${pay.key}`}
-                      className="input"
-                      value={pay.amount}
-                      onChange={(e) => updatePayment(pay.key, { amount: e.target.value })}
-                      required
-                      placeholder="0"
-                    />
-                  </div>
+                  <MoneyInput
+                    id={`amt-${pay.key}`}
+                    label="Tutar"
+                    value={pay.amount}
+                    onValueChange={(c) => updatePayment(pay.key, { amount: c })}
+                    required
+                  />
                 </div>
 
                 <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">

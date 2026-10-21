@@ -2,6 +2,7 @@
 
 import { ActionForm, MiniForm } from "@/components/action-form";
 import { FormModal } from "@/components/form-modal";
+import { MoneyInput } from "@/components/money-input";
 import { Badge } from "@/components/ui";
 import {
   CHANNEL_TR,
@@ -169,8 +170,13 @@ export function StudentFinancePanel({
                   <input type="hidden" name="enrollmentId" value={enrollment.id} />
                   <input type="hidden" name="studentId" value={studentId} />
                   <div>
-                    <label className="label" htmlFor="amount">Tutar</label>
-                    <input id="amount" name="amount" className="input" required defaultValue={remaining > 0 ? String(remaining) : ""} />
+                    <MoneyInput
+                      id="amount"
+                      name="amount"
+                      label="Tutar"
+                      required
+                      defaultValue={remaining > 0 ? remaining : undefined}
+                    />
                   </div>
                   <div>
                     <label className="label" htmlFor="collectedAt">Tarih</label>
@@ -195,8 +201,7 @@ export function StudentFinancePanel({
                   <input type="hidden" name="enrollmentId" value={enrollment.id} />
                   <input type="hidden" name="studentId" value={studentId} />
                   <div>
-                    <label className="label" htmlFor="planAmount">Tutar</label>
-                    <input id="planAmount" name="amount" className="input" required />
+                    <MoneyInput id="planAmount" name="amount" label="Tutar" required />
                   </div>
                   <div>
                     <label className="label" htmlFor="dueAt">Alınacağı tarih</label>

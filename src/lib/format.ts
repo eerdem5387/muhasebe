@@ -17,7 +17,18 @@ const monthFmt = new Intl.DateTimeFormat("tr-TR", {
 });
 
 export function fmtMoney(value: string | number | null | undefined): string {
-  const n = typeof value === "string" ? Number(value) : (value ?? 0);
+  // Lazy import avoided — light local parse for TR/US money strings
+  let n: number;
+  if (typeof value === "number") {
+    n = value;
+  } else if (value == null || value === "") {
+    n = 0;
+  } else {
+    let s = String(value).trim().replace(/\s/g, "");
+    if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+    else if ((s.match(/\./g) ?? []).length > 1) s = s.replace(/\./g, "");
+    n = Number(s);
+  }
   return tl.format(Number.isFinite(n) ? n : 0);
 }
 

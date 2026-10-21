@@ -9,6 +9,7 @@ import { readUpload, requiredKindForChannel } from "@/server/uploads";
 import { scheduleStatus } from "@/server/income-schedule";
 import { inferPaymentProgress } from "@/server/payment-progress";
 import { toYearMonth } from "@/lib/format";
+import { toMoneyCanonical } from "@/lib/money";
 import type { ActionState } from "./types";
 
 function revalidateStudent(studentId: string) {
@@ -175,10 +176,10 @@ export async function createPlannedPaymentAction(
 ): Promise<ActionState> {
   const studentId = String(formData.get("studentId") ?? "");
   const enrollmentId = String(formData.get("enrollmentId") ?? "");
-  const amountRaw = String(formData.get("amount") ?? "").replace(",", ".");
+  const amountCanon = toMoneyCanonical(String(formData.get("amount") ?? ""));
   const dueAt = String(formData.get("dueAt") ?? "");
   const paymentChannel = String(formData.get("paymentChannel") ?? "") as PaymentChannel;
-  const amount = Number(amountRaw);
+  const amount = amountCanon != null ? Number(amountCanon) : NaN;
   if (!enrollmentId || !dueAt || !Number.isFinite(amount) || amount <= 0) {
     return { error: "Tarih ve geçerli bir tutar girin." };
   }
@@ -199,7 +200,7 @@ export async function createPlannedPaymentAction(
         tenantId: ctx.tenantId,
         enrollmentId: enrollment.id,
         installmentIndex: nextIndex,
-        amount: new Prisma.Decimal(amountRaw),
+        amount: new Prisma.Decimal(amountCanon!),
         releaseDate,
         yearMonth: toYearMonth(releaseDate),
         status: scheduleStatus(releaseDate, false),
