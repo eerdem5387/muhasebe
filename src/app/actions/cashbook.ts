@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { requireOperations } from "@/lib/context";
-import { cashbookExpenseSchema, cashbookIncomeSchema } from "@/lib/validation";
+import {
+  cashbookExpenseSchema,
+  cashbookExpenseUpdateSchema,
+  cashbookIncomeSchema,
+} from "@/lib/validation";
 import { toErrorMessage } from "@/lib/errors";
 import { pushFinanceEventToOkul, serializeCashbookEntry } from "@/server/okul-webhook";
 import type { ActionState } from "./types";
@@ -152,6 +156,59 @@ export async function createCashbookExpenseAction(
     return { error: toErrorMessage(err) };
   }
   return { success: "Gider kaydı eklendi." };
+}
+
+export async function updateCashbookExpenseAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = cashbookExpenseUpdateSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
+  const data = parsed.data;
+  if (data.id.includes(":")) return { error: "Bu kayıt düzenlenemez." };
+
+  try {
+    const ctx = await requireOperations();
+    const existing = await ctx.db.cashbookEntry.findFirst({
+      where: { id: data.id, side: "EXPENSE" },
+      select: { id: true, yearMonth: true },
+    });
+    if (!existing) return { error: "Gider kaydı bulunamadı." };
+
+    const yearMonth = data.yearMonth || yearMonthFromDate(data.occurredAt);
+    const noteParts = [
+      data.requesterName ? `Talep eden: ${data.requesterName.trim()}` : null,
+      data.notes?.trim() || null,
+    ].filter(Boolean);
+
+    const updated = await ctx.db.cashbookEntry.update({
+      where: { id: existing.id },
+      data: {
+        yearMonth,
+        amount: new Prisma.Decimal(data.amount),
+        occurredAt: new Date(`${data.occurredAt}T12:00:00`),
+        channel: data.channel,
+        bankName: data.bankName?.trim() || null,
+        checkInstallments:
+          data.channel === "CHECK" ? Number(data.checkInstallments) : null,
+        expenseTitle: data.expenseTitle,
+        payeeIdentityNo: data.payeeIdentityNo?.trim() || null,
+        invoiceNo: data.invoiceNo?.trim() || null,
+        notes: noteParts.length ? noteParts.join(" · ") : null,
+      },
+    });
+
+    await pushFinanceEventToOkul(
+      "cashbook_entry.upserted",
+      ctx.tenantId,
+      serializeCashbookEntry(updated),
+    );
+    revalidateMonth(existing.yearMonth);
+    if (yearMonth !== existing.yearMonth) revalidateMonth(yearMonth);
+  } catch (err) {
+    return { error: toErrorMessage(err) };
+  }
+  return { success: "Gider kaydı güncellendi." };
 }
 
 export async function deleteCashbookEntryAction(formData: FormData): Promise<void> {

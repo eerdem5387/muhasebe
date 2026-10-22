@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui";
 import { deleteCashbookEntryAction } from "@/app/actions/cashbook";
+import { ExpenseEditForm } from "./entry-form";
 import { CASHBOOK_CHANNEL_TR, INCOME_CATEGORY_TR } from "@/lib/cashbook";
 import { CHANNEL_TR, fmtDate, fmtMoney } from "@/lib/format";
 import type { MonthlyLedgerRow } from "@/server/monthly-ledger";
@@ -73,9 +74,11 @@ export function CashbookPanel({
   plannedTotal?: number;
 }) {
   const [selected, setSelected] = useState<CashbookRow | null>(null);
+  const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
   const isIncome = side === "INCOME";
+  const canEditExpense = Boolean(canWrite && selected && !isIncome && selected.deletable);
 
   const channelDisplay = selected
     ? selected.channel === "BANK" && isIncome
@@ -138,7 +141,11 @@ export function CashbookPanel({
                 className={`cursor-pointer border-b border-slate-300 hover:bg-brand-50/60 ${
                   row.tag === "PLANNED" ? "bg-amber-50/40" : "bg-white"
                 }`}
-                onClick={() => setSelected(row)}
+                onClick={() => {
+                  setSelected(row);
+                  // Elle girilen giderlerde doğrudan düzenleme formunu aç
+                  setEditing(!isIncome && row.deletable && canWrite);
+                }}
               >
                 <td className="px-4 py-2.5 text-sm font-medium text-slate-800">
                   <span className="inline-flex flex-wrap items-center gap-2">
@@ -186,18 +193,27 @@ export function CashbookPanel({
             type="button"
             aria-label="Kapat"
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
-            onClick={() => setSelected(null)}
+            onClick={() => {
+              setSelected(null);
+              setEditing(false);
+            }}
           />
           <div
             role="dialog"
             aria-modal="true"
-            className="relative z-10 my-4 w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10"
+            className={`relative z-10 my-4 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 ${
+              editing && canEditExpense ? "max-w-lg" : "max-w-md"
+            }`}
           >
             <div className={`px-5 pb-4 pt-5 ${isIncome ? "bg-gradient-to-br from-emerald-50 to-white" : "bg-gradient-to-br from-rose-50 to-white"}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    {isIncome ? "Gelir detayı" : "Gider detayı"}
+                    {isIncome
+                      ? "Gelir detayı"
+                      : editing && canEditExpense
+                        ? "Gideri düzenle"
+                        : "Gider detayı"}
                   </p>
                   <h2 className="mt-1 truncate text-lg font-semibold text-slate-900">{selected.title}</h2>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -206,94 +222,144 @@ export function CashbookPanel({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelected(null)}
+                  onClick={() => {
+                    setSelected(null);
+                    setEditing(false);
+                  }}
                   className="rounded-full p-1.5 text-slate-400 transition hover:bg-white/80 hover:text-slate-700"
                   aria-label="Kapat"
                 >
                   ✕
                 </button>
               </div>
-              <p className={`mt-4 text-2xl font-bold tracking-tight ${isIncome ? "text-emerald-700" : "text-rose-700"}`}>
-                {fmtMoney(selected.amount)}
-              </p>
+              {!(editing && canEditExpense) ? (
+                <p className={`mt-4 text-2xl font-bold tracking-tight ${isIncome ? "text-emerald-700" : "text-rose-700"}`}>
+                  {fmtMoney(selected.amount)}
+                </p>
+              ) : null}
             </div>
 
-            <div className="space-y-4 px-5 py-4">
-              <div className="grid grid-cols-2 gap-2">
-                <MetaPill label="Tarih" value={fmtDate(selected.occurredAt)} />
-                <MetaPill label="Ödeme kanalı" value={channelDisplay} />
+            {editing && canEditExpense ? (
+              <div className="max-h-[min(70vh,36rem)] space-y-4 overflow-y-auto px-5 py-4">
+                <ExpenseEditForm
+                  key={selected.id}
+                  entry={selected}
+                  month={month}
+                  onDone={() => {
+                    setSelected(null);
+                    setEditing(false);
+                    router.refresh();
+                  }}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-slate-600 hover:underline"
+                    onClick={() => setEditing(false)}
+                  >
+                    Vazgeç
+                  </button>
+                  {canWrite && selected.deletable ? (
+                    <button
+                      type="button"
+                      disabled={deleting}
+                      className="rounded-lg px-2 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                      onClick={() => void handleDelete()}
+                    >
+                      {deleting ? "Siliniyor…" : "Kaydı sil"}
+                    </button>
+                  ) : null}
+                </div>
               </div>
+            ) : (
+              <>
+                <div className="space-y-4 px-5 py-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <MetaPill label="Tarih" value={fmtDate(selected.occurredAt)} />
+                    <MetaPill label="Ödeme kanalı" value={channelDisplay} />
+                  </div>
 
-              <dl className="divide-y divide-slate-100 rounded-xl bg-slate-50/80 px-3 ring-1 ring-slate-100">
-                {isIncome ? (
-                  <>
+                  <dl className="divide-y divide-slate-100 rounded-xl bg-slate-50/80 px-3 ring-1 ring-slate-100">
+                    {isIncome ? (
+                      <>
+                        <DetailRow
+                          label="Gelir kalemi"
+                          value={
+                            selected.incomeCategory
+                              ? INCOME_CATEGORY_TR[selected.incomeCategory]
+                              : null
+                          }
+                        />
+                        <DetailRow
+                          label="Ödeme yapan"
+                          value={[selected.payerFirstName, selected.payerLastName].filter(Boolean).join(" ")}
+                        />
+                        {selected.payerIdentityNo ? (
+                          <DetailRow label="TC kimlik" value={selected.payerIdentityNo} />
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <DetailRow label="Harcama yapılan" value={selected.expenseTitle} />
+                        <DetailRow label="Talep eden" value={parseNoteField(selected.notes, "Talep eden")} />
+                        <DetailRow
+                          label="Ödeme yapılan / tedarikçi"
+                          value={selected.payeeIdentityNo}
+                        />
+                        <DetailRow label="Açıklama" value={selected.invoiceNo} />
+                      </>
+                    )}
                     <DetailRow
-                      label="Gelir kalemi"
+                      label={
+                        isIncome && selected.channel === "BANK"
+                          ? "Banka hesabı"
+                          : "Banka"
+                      }
+                      value={selected.bankName}
+                    />
+                    <DetailRow
+                      label="Çek vade sayısı"
                       value={
-                        selected.incomeCategory
-                          ? INCOME_CATEGORY_TR[selected.incomeCategory]
-                          : null
+                        selected.checkInstallments != null ? String(selected.checkInstallments) : null
                       }
                     />
                     <DetailRow
-                      label="Ödeme yapan"
-                      value={[selected.payerFirstName, selected.payerLastName].filter(Boolean).join(" ")}
+                      label="Açıklama"
+                      value={isIncome ? humanizeNotes(selected.notes) : leftoverNotes(selected.notes)}
                     />
-                    {selected.payerIdentityNo ? (
-                      <DetailRow label="TC kimlik" value={selected.payerIdentityNo} />
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <DetailRow label="Harcama yapılan" value={selected.expenseTitle} />
-                    <DetailRow label="Talep eden" value={parseNoteField(selected.notes, "Talep eden")} />
-                    <DetailRow
-                      label="Ödeme yapılan / tedarikçi"
-                      value={selected.payeeIdentityNo}
-                    />
-                    <DetailRow label="Açıklama" value={selected.invoiceNo} />
-                  </>
-                )}
-                <DetailRow
-                  label={
-                    isIncome && selected.channel === "BANK"
-                      ? "Banka hesabı"
-                      : "Banka"
-                  }
-                  value={selected.bankName}
-                />
-                <DetailRow
-                  label="Çek vade sayısı"
-                  value={
-                    selected.checkInstallments != null ? String(selected.checkInstallments) : null
-                  }
-                />
-                <DetailRow
-                  label="Açıklama"
-                  value={isIncome ? humanizeNotes(selected.notes) : leftoverNotes(selected.notes)}
-                />
-              </dl>
-            </div>
+                  </dl>
+                </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-5 py-3">
-              {selected.href ? (
-                <Link href={selected.href} className="text-sm font-medium text-brand-700 hover:underline">
-                  Kaynağa git →
-                </Link>
-              ) : (
-                <span />
-              )}
-              {canWrite && selected.deletable ? (
-                <button
-                  type="button"
-                  disabled={deleting}
-                  className="rounded-lg px-2 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
-                  onClick={() => void handleDelete()}
-                >
-                  {deleting ? "Siliniyor…" : "Kaydı sil"}
-                </button>
-              ) : null}
-            </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-5 py-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {selected.href ? (
+                      <Link href={selected.href} className="text-sm font-medium text-brand-700 hover:underline">
+                        Kaynağa git →
+                      </Link>
+                    ) : null}
+                    {canEditExpense ? (
+                      <button
+                        type="button"
+                        className="btn-primary !py-1.5 text-sm"
+                        onClick={() => setEditing(true)}
+                      >
+                        Düzenle
+                      </button>
+                    ) : null}
+                  </div>
+                  {canWrite && selected.deletable ? (
+                    <button
+                      type="button"
+                      disabled={deleting}
+                      className="rounded-lg px-2 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                      onClick={() => void handleDelete()}
+                    >
+                      {deleting ? "Siliniyor…" : "Kaydı sil"}
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

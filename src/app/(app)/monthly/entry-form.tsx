@@ -3,10 +3,15 @@
 import { useMemo, useState } from "react";
 import { ActionForm } from "@/components/action-form";
 import { FormModal } from "@/components/form-modal";
-import { createCashbookExpenseAction, createCashbookIncomeAction } from "@/app/actions/cashbook";
+import {
+  createCashbookExpenseAction,
+  createCashbookIncomeAction,
+  updateCashbookExpenseAction,
+} from "@/app/actions/cashbook";
 import { CASHBOOK_CHANNEL_TR } from "@/lib/cashbook";
 import { todayISO } from "@/lib/format";
 import { MoneyInput } from "@/components/money-input";
+import type { MonthlyLedgerRow } from "@/server/monthly-ledger";
 
 export type CashbookStudentOption = {
   id: string;
@@ -51,8 +56,18 @@ function newPaymentLine(defaultDay: string): PaymentLine {
   };
 }
 
-function ChannelFields({ idPrefix }: { idPrefix: string }) {
-  const [channel, setChannel] = useState("CASH");
+function ChannelFields({
+  idPrefix,
+  defaultChannel = "CASH",
+  defaultBankName = "",
+  defaultCheckInstallments = "",
+}: {
+  idPrefix: string;
+  defaultChannel?: string;
+  defaultBankName?: string;
+  defaultCheckInstallments?: string;
+}) {
+  const [channel, setChannel] = useState(defaultChannel);
   return (
     <>
       <div>
@@ -73,7 +88,13 @@ function ChannelFields({ idPrefix }: { idPrefix: string }) {
       {(channel === "CREDIT_CARD" || channel === "CHECK") && (
         <div>
           <label className="label" htmlFor={`${idPrefix}-bank`}>Banka adı</label>
-          <input id={`${idPrefix}-bank`} name="bankName" className="input" required />
+          <input
+            id={`${idPrefix}-bank`}
+            name="bankName"
+            className="input"
+            defaultValue={defaultBankName}
+            required
+          />
         </div>
       )}
       {channel === "CHECK" && (
@@ -86,12 +107,42 @@ function ChannelFields({ idPrefix }: { idPrefix: string }) {
             min={1}
             max={48}
             className="input"
+            defaultValue={defaultCheckInstallments}
             required
           />
         </div>
       )}
     </>
   );
+}
+
+function toDateInputValue(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return todayISO();
+  const z = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
+
+function parseExpenseKind(title: string | null | undefined): {
+  kind: string;
+  productName: string;
+  extraKind: string | null;
+} {
+  const raw = title?.trim() || "";
+  if (raw.startsWith("Ürün · ")) {
+    return { kind: "Ürün", productName: raw.slice("Ürün · ".length).trim(), extraKind: null };
+  }
+  if ((EXPENSE_KIND_OPTIONS as readonly string[]).includes(raw)) {
+    return { kind: raw, productName: "", extraKind: null };
+  }
+  if (raw) return { kind: raw, productName: "", extraKind: raw };
+  return { kind: "Ürün", productName: "", extraKind: null };
+}
+
+function parseRequester(notes: string | null | undefined): string {
+  if (!notes) return "";
+  const m = notes.match(/Talep eden:\s*([^·]+)/i);
+  return m?.[1]?.trim() || "";
 }
 
 export function IncomeAddModal({
@@ -487,5 +538,163 @@ export function ExpenseAddModal({ month }: { month: string }) {
         </div>
       </ActionForm>
     </FormModal>
+  );
+}
+
+/** Detay modalından gider düzenleme formu. */
+export function ExpenseEditForm({
+  entry,
+  month,
+  onDone,
+}: {
+  entry: MonthlyLedgerRow;
+  month: string;
+  onDone?: () => void;
+}) {
+  const parsed = parseExpenseKind(entry.expenseTitle);
+  const initialRequester = parseRequester(entry.notes);
+  const kindOptions = parsed.extraKind
+    ? ([parsed.extraKind, ...EXPENSE_KIND_OPTIONS.filter((k) => k !== parsed.extraKind)] as string[])
+    : ([...EXPENSE_KIND_OPTIONS] as string[]);
+
+  const [kind, setKind] = useState(parsed.kind);
+  const [productName, setProductName] = useState(parsed.productName);
+  const [hasRequester, setHasRequester] = useState(Boolean(initialRequester));
+  const [requesterName, setRequesterName] = useState(initialRequester);
+  const isProduct = kind === "Ürün";
+  const expenseTitle = isProduct
+    ? productName.trim()
+      ? `Ürün · ${productName.trim()}`
+      : ""
+    : kind;
+
+  return (
+    <ActionForm action={updateCashbookExpenseAction} submitLabel="Değişiklikleri kaydet" onSuccess={onDone}>
+      <input type="hidden" name="id" value={entry.id} />
+      <input type="hidden" name="yearMonth" value={month} />
+      <input type="hidden" name="expenseTitle" value={expenseTitle} />
+      <input type="hidden" name="requesterName" value={hasRequester ? requesterName : ""} />
+
+      <div>
+        <label className="label" htmlFor="edit-expense-kind">Harcama yapılan</label>
+        <select
+          id="edit-expense-kind"
+          className="input"
+          value={kind}
+          onChange={(e) => {
+            const next = e.target.value;
+            setKind(next);
+            if (next !== "Ürün") setProductName("");
+          }}
+          required
+        >
+          {kindOptions.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {isProduct ? (
+        <div>
+          <label className="label" htmlFor="edit-expense-product">Ürün adı</label>
+          <input
+            id="edit-expense-product"
+            className="input"
+            value={productName}
+            onChange={(e) => setProductName(e.target.value)}
+            placeholder="Örn. mikrofon, projeksiyon, yazıcı toneri"
+            required
+            minLength={2}
+          />
+        </div>
+      ) : null}
+
+      <div>
+        <label className="label" htmlFor="edit-payee-id">
+          Ödeme Yapılan Kişi yada Kurum / Tedarikçi / Harcamanın Adı
+        </label>
+        <input
+          id="edit-payee-id"
+          name="payeeIdentityNo"
+          className="input"
+          maxLength={200}
+          defaultValue={entry.payeeIdentityNo ?? ""}
+          placeholder="Örn. ABC Ltd. · muhasebe yazılımı aboneliği"
+          autoComplete="off"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+            checked={hasRequester}
+            onChange={(e) => {
+              setHasRequester(e.target.checked);
+              if (!e.target.checked) setRequesterName("");
+            }}
+          />
+          Talep eden var
+        </label>
+        {hasRequester ? (
+          <div>
+            <label className="label" htmlFor="edit-expense-requester">Talep eden</label>
+            <input
+              id="edit-expense-requester"
+              className="input"
+              value={requesterName}
+              onChange={(e) => setRequesterName(e.target.value)}
+              placeholder="Ad soyad"
+              required
+              minLength={2}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      <ChannelFields
+        idPrefix="edit-expense"
+        defaultChannel={entry.channel ?? "CASH"}
+        defaultBankName={entry.bankName ?? ""}
+        defaultCheckInstallments={
+          entry.checkInstallments != null ? String(entry.checkInstallments) : ""
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <MoneyInput
+          id="edit-expense-amount"
+          name="amount"
+          label="Tutar"
+          defaultValue={entry.amount}
+          required
+        />
+        <div>
+          <label className="label" htmlFor="edit-expense-date">Tarih</label>
+          <input
+            id="edit-expense-date"
+            name="occurredAt"
+            type="date"
+            className="input"
+            defaultValue={toDateInputValue(entry.occurredAt)}
+            required
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="label" htmlFor="edit-invoice-no">Açıklama</label>
+        <input
+          id="edit-invoice-no"
+          name="invoiceNo"
+          className="input"
+          defaultValue={entry.invoiceNo ?? ""}
+          placeholder="İsteğe bağlı not veya fatura bilgisi"
+        />
+      </div>
+    </ActionForm>
   );
 }

@@ -309,51 +309,68 @@ export const cashbookIncomeSchema = z
     }
   });
 
-export const cashbookExpenseSchema = z
-  .object({
-    yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
-    requesterName: opt,
-    expenseTitle: z.string().trim().min(2, "Harcama türü gerekli."),
-    payeeIdentityNo: payeeIdentityOptional,
-    channel: cashbookChannelSchema,
-    bankName: opt,
-    checkInstallments: opt,
-    amount: decimalString,
-    occurredAt: z.string().trim().min(1, "Tarih gerekli."),
-    /** UI etiketi: Açıklama */
-    invoiceNo: opt,
-    notes: opt,
-  })
-  .superRefine((data, ctx) => {
-    if (data.requesterName && data.requesterName.trim().length > 0 && data.requesterName.trim().length < 2) {
+const cashbookExpenseFields = {
+  yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
+  requesterName: opt,
+  expenseTitle: z.string().trim().min(2, "Harcama türü gerekli."),
+  payeeIdentityNo: payeeIdentityOptional,
+  channel: cashbookChannelSchema,
+  bankName: opt,
+  checkInstallments: opt,
+  amount: decimalString,
+  occurredAt: z.string().trim().min(1, "Tarih gerekli."),
+  /** UI etiketi: Açıklama */
+  invoiceNo: opt,
+  notes: opt,
+};
+
+function refineCashbookExpense(
+  data: {
+    requesterName?: string | null;
+    channel: string;
+    checkInstallments?: string | null;
+    bankName?: string | null;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (data.requesterName && data.requesterName.trim().length > 0 && data.requesterName.trim().length < 2) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["requesterName"],
+      message: "Talep eden adı en az 2 karakter olmalı.",
+    });
+  }
+  if (data.channel === "CHECK") {
+    const n = Number(data.checkInstallments);
+    if (!data.checkInstallments || Number.isNaN(n) || n < 1 || n > 48) {
       ctx.addIssue({
         code: "custom",
-        path: ["requesterName"],
-        message: "Talep eden adı en az 2 karakter olmalı.",
+        path: ["checkInstallments"],
+        message: "Çek için vade sayısı (1–48) girin.",
       });
     }
-    if (data.channel === "CHECK") {
-      const n = Number(data.checkInstallments);
-      if (!data.checkInstallments || Number.isNaN(n) || n < 1 || n > 48) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["checkInstallments"],
-          message: "Çek için vade sayısı (1–48) girin.",
-        });
-      }
-      if (!data.bankName?.trim()) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["bankName"],
-          message: "Çek için banka adı gerekli.",
-        });
-      }
-    }
-    if (data.channel === "CREDIT_CARD" && !data.bankName?.trim()) {
+    if (!data.bankName?.trim()) {
       ctx.addIssue({
         code: "custom",
         path: ["bankName"],
-        message: "Kredi kartı için banka adı gerekli.",
+        message: "Çek için banka adı gerekli.",
       });
     }
-  });
+  }
+  if (data.channel === "CREDIT_CARD" && !data.bankName?.trim()) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["bankName"],
+      message: "Kredi kartı için banka adı gerekli.",
+    });
+  }
+}
+
+export const cashbookExpenseSchema = z.object(cashbookExpenseFields).superRefine(refineCashbookExpense);
+
+export const cashbookExpenseUpdateSchema = z
+  .object({
+    id: z.string().trim().min(1, "Kayıt gerekli."),
+    ...cashbookExpenseFields,
+  })
+  .superRefine(refineCashbookExpense);
