@@ -1,6 +1,7 @@
 import "server-only"
 import { prisma, getTenantDb } from "@/lib/prisma"
-import { toYearMonth } from "@/lib/format"
+import { CASHBOOK_CHANNEL_TR, cashbookTitle as cashbookEntryTitle } from "@/lib/cashbook"
+import { CHANNEL_TR, toYearMonth } from "@/lib/format"
 import { scheduleStatus } from "@/server/income-schedule"
 
 function academicYearNeedles(raw: string | null | undefined): string[] {
@@ -31,6 +32,15 @@ function cashbookTitle(row: {
   if (row.side === "EXPENSE") return row.expenseTitle || row.notes || "Gider"
   const name = [row.payerFirstName, row.payerLastName].filter(Boolean).join(" ")
   return name || row.incomeCategory || row.notes || "Gelir"
+}
+
+function paymentChannelLabel(channel: string | null | undefined): string {
+  if (!channel) return "—"
+  if (channel in CHANNEL_TR) return CHANNEL_TR[channel]
+  if (channel in CASHBOOK_CHANNEL_TR) {
+    return CASHBOOK_CHANNEL_TR[channel as keyof typeof CASHBOOK_CHANNEL_TR]
+  }
+  return channel
 }
 
 /** Okul kurucu paneli için anlık mali özet (snapshot’tan bağımsız). */
@@ -67,6 +77,7 @@ export async function exportFinanceSummary(
     yearEnrollments,
     monthExpenses,
     ledgerEntries,
+    planLines,
     monthKeys,
   ] = await Promise.all([
     db.incomeScheduleLine.findMany({
@@ -131,7 +142,22 @@ export async function exportFinanceSummary(
         payerFirstName: true,
         payerLastName: true,
         incomeCategory: true,
+        channel: true,
       },
+    }),
+    db.incomePlanLine.findMany({
+      where: { yearMonth: ym },
+      include: {
+        plan: {
+          select: {
+            paymentChannel: true,
+            notes: true,
+            category: { select: { name: true } },
+            enrollment: { select: { student: { select: { fullName: true } } } },
+          },
+        },
+      },
+      orderBy: [{ releaseDate: "asc" }, { installmentIndex: "asc" }],
     }),
     db.cashbookEntry.findMany({
       distinct: ["yearMonth"],
@@ -218,6 +244,46 @@ export async function exportFinanceSummary(
   const availableMonths = monthKeys.map((row) => row.yearMonth)
   if (!availableMonths.includes(currentYm)) availableMonths.unshift(currentYm)
 
+  const statementRows = [
+    ...ledgerEntries.map((row) => ({
+      id: row.id,
+      side: row.side,
+      occurredAt: row.occurredAt.toISOString(),
+      title:
+        row.side === "EXPENSE"
+          ? row.expenseTitle?.trim() || row.notes?.trim() || "Gider"
+          : cashbookEntryTitle({
+              side: "INCOME",
+              incomeCategory: row.incomeCategory,
+              payerFirstName: row.payerFirstName,
+              payerLastName: row.payerLastName,
+              expenseTitle: row.expenseTitle,
+            }),
+      amount: Number(row.amount),
+      channel: row.channel,
+      channelLabel: paymentChannelLabel(row.channel),
+      tag: null as "PLANNED" | "CREDITED" | null,
+    })),
+    ...planLines.map((line) => {
+      const student = line.plan.enrollment?.student
+      const tag = line.status === "REALIZED" ? ("CREDITED" as const) : ("PLANNED" as const)
+      return {
+        id: `plan:${line.id}`,
+        side: "INCOME" as const,
+        occurredAt: line.releaseDate.toISOString(),
+        title: student ? `${line.plan.category.name} · ${student.fullName}` : line.plan.category.name,
+        amount: Number(line.amount),
+        channel: line.plan.paymentChannel,
+        channelLabel: paymentChannelLabel(line.plan.paymentChannel),
+        tag,
+      }
+    }),
+  ].sort(
+    (a, b) =>
+      new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime() ||
+      a.title.localeCompare(b.title, "tr")
+  )
+
   return {
     tenantId,
     tenantName: tenant?.name ?? null,
@@ -248,6 +314,7 @@ export async function exportFinanceSummary(
       collectionAmount,
     },
     founder: {
+      tenantName: tenant?.name ?? null,
       academicYear: academicYear?.trim() || null,
       expectedIncome,
       collectedTotal,
@@ -267,13 +334,7 @@ export async function exportFinanceSummary(
       ledgerIncome,
       ledgerExpense,
       months: availableMonths,
-      rows: ledgerEntries.map((row) => ({
-        id: row.id,
-        side: row.side,
-        occurredAt: row.occurredAt.toISOString(),
-        title: cashbookTitle(row),
-        amount: Number(row.amount),
-      })),
+      rows: statementRows,
       daily: [...dailyMap.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([date, totals]) => ({ date, ...totals })),
