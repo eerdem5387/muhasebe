@@ -4,6 +4,35 @@ import { CASHBOOK_CHANNEL_TR, cashbookTitle as cashbookEntryTitle } from "@/lib/
 import { CHANNEL_TR, toYearMonth } from "@/lib/format"
 import { scheduleStatus } from "@/server/income-schedule"
 
+const CASH_INCOME_LABEL: Record<string, string> = {
+  TRIP: "Gezi geliri",
+  FOOD: "Yemek geliri",
+  OTHER: "Diğer gelir",
+}
+
+function academicYearMonths(needles: string[]): string[] {
+  for (const raw of needles) {
+    const match = raw.match(/^(20\d{2})-(20\d{2})$/)
+    if (!match) continue
+    const start = Number(match[1])
+    const end = Number(match[2])
+    if (end !== start + 1) continue
+    const months: string[] = []
+    for (let month = 9; month <= 12; month += 1) {
+      months.push(`${start}-${String(month).padStart(2, "0")}`)
+    }
+    for (let month = 1; month <= 8; month += 1) {
+      months.push(`${end}-${String(month).padStart(2, "0")}`)
+    }
+    return months
+  }
+  return []
+}
+
+function isStudentFeeCategory(name: string) {
+  return name.trim().toLocaleLowerCase("tr-TR") === "öğrenci geliri"
+}
+
 function academicYearNeedles(raw: string | null | undefined): string[] {
   if (!raw) return []
   const trimmed = raw.trim()
@@ -53,6 +82,7 @@ export async function exportFinanceSummary(
   const currentYm = toYearMonth(new Date())
   const ym = yearMonth && /^\d{4}-\d{2}$/.test(yearMonth) ? yearMonth : currentYm
   const yearNeedles = academicYearNeedles(academicYear)
+  const yearMonths = academicYearMonths(yearNeedles)
 
   const months: string[] = []
   {
@@ -79,6 +109,8 @@ export async function exportFinanceSummary(
     ledgerEntries,
     planLines,
     monthKeys,
+    otherPlanLines,
+    otherCashIncome,
   ] = await Promise.all([
     db.incomeScheduleLine.findMany({
       where: { yearMonth: ym, enrollment: { status: "ACTIVE" } },
@@ -109,7 +141,10 @@ export async function exportFinanceSummary(
           select: {
             annualFee: true,
             sourceKind: true,
-            collections: { select: { amount: true } },
+            student: { select: { fullName: true } },
+            collections: {
+              select: { id: true, amount: true, collectedAt: true, paymentChannel: true },
+            },
           },
         })
       : Promise.resolve([]),
@@ -164,6 +199,50 @@ export async function exportFinanceSummary(
       select: { yearMonth: true },
       orderBy: { yearMonth: "desc" },
     }),
+    yearNeedles.length
+      ? db.incomePlanLine.findMany({
+          where: { status: "REALIZED" },
+          select: {
+            id: true,
+            amount: true,
+            releaseDate: true,
+            yearMonth: true,
+            plan: {
+              select: {
+                enrollmentId: true,
+                paymentChannel: true,
+                category: { select: { name: true } },
+                enrollment: {
+                  select: {
+                    status: true,
+                    academicYear: true,
+                    student: { select: { fullName: true } },
+                  },
+                },
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
+    yearMonths.length
+      ? db.cashbookEntry.findMany({
+          where: {
+            side: "INCOME",
+            yearMonth: { in: yearMonths },
+            incomeCategory: { in: ["TRIP", "FOOD", "OTHER"] },
+          },
+          select: {
+            id: true,
+            amount: true,
+            occurredAt: true,
+            channel: true,
+            incomeCategory: true,
+            payerFirstName: true,
+            payerLastName: true,
+            notes: true,
+          },
+        })
+      : Promise.resolve([]),
   ])
 
   let incomeRealized = 0
@@ -215,14 +294,101 @@ export async function exportFinanceSummary(
   let collectedNew = 0
   let collectedRenewal = 0
   let collectedUnclassified = 0
+  const incomeDetails: Array<{
+    id: string
+    category: string
+    title: string
+    occurredAt: string
+    amount: number
+    channel: string | null
+    channelLabel: string
+  }> = []
   for (const enrollment of yearEnrollments) {
     expectedIncome += Number(enrollment.annualFee)
     const paid = enrollment.collections.reduce((sum, row) => sum + Number(row.amount), 0)
     collectedTotal += paid
+    const category =
+      enrollment.sourceKind === "NEW_REGISTRATION"
+        ? "Yeni kayıt"
+        : enrollment.sourceKind === "RENEWAL"
+          ? "Kayıt yenileme"
+          : "Diğer kayıt"
     if (enrollment.sourceKind === "NEW_REGISTRATION") collectedNew += paid
     else if (enrollment.sourceKind === "RENEWAL") collectedRenewal += paid
     else collectedUnclassified += paid
+    for (const row of enrollment.collections) {
+      incomeDetails.push({
+        id: row.id,
+        category,
+        title: enrollment.student?.fullName?.trim() || "Öğrenci",
+        occurredAt: row.collectedAt.toISOString(),
+        amount: Number(row.amount),
+        channel: row.paymentChannel,
+        channelLabel: paymentChannelLabel(row.paymentChannel),
+      })
+    }
   }
+
+  const yearSet = new Set(yearNeedles)
+  const monthSet = new Set(yearMonths)
+  for (const line of otherPlanLines) {
+    const categoryName = line.plan.category.name.trim()
+    if (isStudentFeeCategory(categoryName)) continue
+    const enrollment = line.plan.enrollment
+    const inYear = Boolean(
+      enrollment && enrollment.status === "ACTIVE" && yearSet.has(enrollment.academicYear)
+    )
+    const unlinkedInYear = !line.plan.enrollmentId && monthSet.has(line.yearMonth)
+    if (!inYear && !unlinkedInYear) continue
+    incomeDetails.push({
+      id: `plan:${line.id}`,
+      category: categoryName,
+      title: enrollment?.student?.fullName?.trim() || categoryName,
+      occurredAt: line.releaseDate.toISOString(),
+      amount: Number(line.amount),
+      channel: line.plan.paymentChannel,
+      channelLabel: paymentChannelLabel(line.plan.paymentChannel),
+    })
+  }
+  for (const row of otherCashIncome) {
+    const category = CASH_INCOME_LABEL[row.incomeCategory ?? ""] ?? "Diğer gelir"
+    const payer = [row.payerFirstName, row.payerLastName].filter(Boolean).join(" ").trim()
+    incomeDetails.push({
+      id: `cash:${row.id}`,
+      category,
+      title: payer || row.notes?.trim() || category,
+      occurredAt: row.occurredAt.toISOString(),
+      amount: Number(row.amount),
+      channel: row.channel,
+      channelLabel: paymentChannelLabel(row.channel),
+    })
+  }
+  const preferredCategories = ["Yeni kayıt", "Kayıt yenileme"]
+  incomeDetails.sort((a, b) => {
+    const rank = (category: string) => {
+      const index = preferredCategories.indexOf(category)
+      return index === -1 ? preferredCategories.length : index
+    }
+    const byRank = rank(a.category) - rank(b.category)
+    if (byRank !== 0) return byRank
+    const byName = a.category.localeCompare(b.category, "tr")
+    if (byName !== 0) return byName
+    return new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime()
+  })
+  const categoryTotals = new Map<string, number>()
+  for (const row of incomeDetails) {
+    categoryTotals.set(row.category, (categoryTotals.get(row.category) ?? 0) + row.amount)
+  }
+  const categoryNames = [...preferredCategories]
+  for (const row of incomeDetails) {
+    if (!categoryNames.includes(row.category)) categoryNames.push(row.category)
+  }
+  const incomeCategories = categoryNames
+    .filter(
+      (name) =>
+        preferredCategories.includes(name) || (categoryTotals.get(name) ?? 0) > 0
+    )
+    .map((name) => ({ name, amount: categoryTotals.get(name) ?? 0 }))
 
   const expenseTotal = monthExpenses.reduce((sum, row) => sum + Number(row.amount), 0)
   const dailyMap = new Map<string, { income: number; expense: number }>()
@@ -321,6 +487,8 @@ export async function exportFinanceSummary(
       collectedNew,
       collectedRenewal,
       collectedUnclassified,
+      incomeCategories,
+      incomeDetails,
       expenseMonth: currentYm,
       expenseTotal,
       expenses: monthExpenses.map((row) => ({
