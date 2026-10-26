@@ -23,6 +23,7 @@ export async function POST(req: Request, ctx: Ctx) {
     action?: "approve" | "reject";
     as?: "principal" | "founder";
     actorId?: string;
+    actorName?: string;
     reason?: string;
   };
 
@@ -32,6 +33,7 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   const actorId = body.actorId?.trim() || "oys:unknown";
+  const actorName = body.actorName?.trim() || null;
   const action = body.action === "reject" ? "reject" : "approve";
 
   if (action === "reject") {
@@ -39,6 +41,7 @@ export async function POST(req: Request, ctx: Ctx) {
       tenantId,
       requestId: id,
       actorId,
+      actorName,
       reason: body.reason,
     });
     if (!result.ok) {
@@ -53,6 +56,7 @@ export async function POST(req: Request, ctx: Ctx) {
     requestId: id,
     as,
     actorId,
+    actorName,
   });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });

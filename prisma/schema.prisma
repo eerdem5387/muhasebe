@@ -348,10 +348,14 @@ model ExpenseRequest {
   principalApprovedBy String?
   founderApprovedAt   DateTime?
   founderApprovedBy   String?
+  /// Onaylayan kurucu / yetkilinin ad soyadı
+  founderApprovedByName String?
   completedAt         DateTime?
   completedById       String?
   rejectedAt          DateTime?
   rejectedById        String?
+  /// Reddeden kişinin ad soyadı
+  rejectedByName      String?
   rejectReason        String?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt

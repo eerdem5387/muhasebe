@@ -160,6 +160,7 @@ export async function approveRequestAction(formData: FormData): Promise<void> {
     requestId: id,
     as: "principal",
     actorId: ctx.userId,
+    actorName: ctx.name,
   });
   if (!result.ok) return;
   revalidatePath("/requests");
@@ -175,6 +176,7 @@ export async function rejectRequestAction(formData: FormData): Promise<void> {
     tenantId: ctx.tenantId,
     requestId: id,
     actorId: ctx.userId,
+    actorName: ctx.name,
     reason: String(formData.get("reason") ?? "") || null,
   });
   revalidatePath("/requests");

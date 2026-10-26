@@ -24,6 +24,7 @@ export async function applyExpenseRequestApproval(input: {
   requestId: string;
   as: "principal" | "founder";
   actorId: string;
+  actorName?: string | null;
   approvedAt?: Date;
 }) {
   const db = getTenantDb(input.tenantId);
@@ -34,6 +35,7 @@ export async function applyExpenseRequestApproval(input: {
   }
 
   const now = input.approvedAt ?? new Date();
+  const actorName = input.actorName?.trim() || null;
 
   // Yeni senaryo: yalnızca kurucu onayı yeterlidir.
   if (input.as === "founder") {
@@ -42,6 +44,7 @@ export async function applyExpenseRequestApproval(input: {
       data: {
         founderApprovedAt: now,
         founderApprovedBy: input.actorId,
+        founderApprovedByName: actorName,
         status: "APPROVED",
       },
     });
@@ -71,6 +74,7 @@ export async function applyExpenseRequestRejection(input: {
   tenantId: string;
   requestId: string;
   actorId: string;
+  actorName?: string | null;
   reason?: string | null;
   rejectedAt?: Date;
 }) {
@@ -87,6 +91,7 @@ export async function applyExpenseRequestRejection(input: {
       status: "REJECTED",
       rejectedAt: input.rejectedAt ?? new Date(),
       rejectedById: input.actorId,
+      rejectedByName: input.actorName?.trim() || null,
       rejectReason: input.reason?.trim() || null,
     },
   });

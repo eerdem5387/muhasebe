@@ -114,7 +114,12 @@ export default async function RequestsPage({
                   {r.notes ? ` · ${r.notes}` : ""}
                 </p>
                 <p className="mt-0.5 text-[11px] text-ink-400">
-                  Kurucu: {r.founderApprovedAt ? "onayladı" : "bekliyor"}
+                  Kurucu:{" "}
+                  {r.founderApprovedAt
+                    ? r.founderApprovedByName
+                      ? `${r.founderApprovedByName} onayladı`
+                      : "onayladı"
+                    : "bekliyor"}
                   {" · "}
                   Muhasebe:{" "}
                   {r.completedAt
@@ -122,6 +127,9 @@ export default async function RequestsPage({
                     : r.status === "APPROVED"
                       ? "tutar bekleniyor"
                       : "—"}
+                  {r.status === "REJECTED" && r.rejectedByName
+                    ? ` · Red: ${r.rejectedByName}`
+                    : ""}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
