@@ -17,6 +17,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Tenant bulunamadı." }, { status: 400 })
   }
   const month = url.searchParams.get("month")
-  const summary = await exportFinanceSummary(tenantId, month ?? undefined)
+  const academicYear = url.searchParams.get("academicYear")
+  const summary = await exportFinanceSummary(tenantId, month ?? undefined, academicYear)
   return NextResponse.json(summary)
 }
