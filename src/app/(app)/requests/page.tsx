@@ -12,6 +12,7 @@ import { CHANNEL_TR, STATUS_TR, fmtDate, fmtMoney, todayISO } from "@/lib/format
 import { RequestDateFilter } from "./date-filter";
 import { DeleteRequestButton } from "./delete-button";
 import { MoneyInput } from "@/components/money-input";
+import { RequestAmountFields } from "./request-amount-fields";
 
 const color = {
   PENDING: "amber",
@@ -53,7 +54,7 @@ export default async function RequestsPage({
     <div>
       <PageHeader
         title="Harcama talepleri"
-        description="Talep tutarsız oluşturulur → kurucu okul panelinden onaylar → muhasebe harcama tutarını girip tamamlar."
+        description="Talep oluşturulur → kurucu okul panelinden onaylar → muhasebe tutarı girip (veya önceden girilmiş tutarı doğrulayıp) tamamlar."
         actions={
           canWrite ? (
             <FormModal buttonLabel="Talep oluştur" title="Yeni talep">
@@ -88,9 +89,17 @@ export default async function RequestsPage({
                     <option value="PROMISSORY">Senet</option>
                   </select>
                 </div>
+                <RequestAmountFields />
                 <div>
                   <label className="label" htmlFor="notes">Açıklama</label>
-                  <input id="notes" name="notes" className="input" placeholder="İsteğe bağlı açıklama" />
+                  <input
+                    id="notes"
+                    name="notes"
+                    className="input"
+                    placeholder="Harcama açıklaması"
+                    required
+                    minLength={2}
+                  />
                 </div>
               </ActionForm>
             </FormModal>
@@ -158,6 +167,7 @@ export default async function RequestsPage({
                       id={`amount-${r.id}`}
                       name="amount"
                       label="Tutar"
+                      defaultValue={r.total != null ? Number(r.total) : undefined}
                       required
                       inputClassName="!py-1.5 text-sm"
                     />

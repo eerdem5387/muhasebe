@@ -188,7 +188,23 @@ export const expenseRequestSchema = z.object({
   title: z.string().trim().min(3, "Harcama kalemi gerekli."),
   requesterName: z.string().trim().min(2, "Talep eden adı gerekli."),
   channel: requestChannelSchema,
-  notes: opt,
+  notes: z.string().trim().min(2, "Açıklama gerekli."),
+  /** Checkbox işaretliyse gönderilir; boşsa tutarsız talep. */
+  total: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .superRefine((v, ctx) => {
+      if (!v) return;
+      if (toMoneyCanonical(v) == null) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Geçerli bir tutar girin (örn. 19350,50).",
+        });
+      }
+    })
+    .transform((v) => (v ? toMoneyCanonical(v)! : null)),
 });
 
 export const completeExpenseRequestSchema = z.object({
@@ -210,13 +226,12 @@ export const reportEntrySchema = z.object({
   notes: opt,
 });
 
-/** Ödeme yapılan kişi/kurum/tedarikçi — serbest metin, zorunlu değil */
-const payeeIdentityOptional = z
+/** Ödeme yapılan kişi/kurum/tedarikçi — serbest metin, zorunlu */
+const payeeIdentityRequired = z
   .string()
   .trim()
-  .max(200, "En fazla 200 karakter.")
-  .optional()
-  .or(z.literal(""));
+  .min(2, "Ödeme yapılan kişi / kurum gerekli.")
+  .max(200, "En fazla 200 karakter.");
 
 export const cashbookChannelSchema = z.enum(["BANK", "CHECK", "CREDIT_CARD", "CASH", "PROMISSORY"]);
 
@@ -270,7 +285,7 @@ export const cashbookIncomeSchema = z
     payerFirstName: opt,
     payerLastName: opt,
     paymentsJson: z.string().trim().min(2, "En az bir ödeme satırı gerekli."),
-    notes: opt,
+    notes: z.string().trim().min(2, "Açıklama gerekli."),
   })
   .superRefine((data, ctx) => {
     if (data.incomeCategory === "STUDENT") {
@@ -311,16 +326,16 @@ export const cashbookIncomeSchema = z
 
 const cashbookExpenseFields = {
   yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
-  requesterName: opt,
+  requesterName: z.string().trim().min(2, "Talep eden adı gerekli."),
   expenseTitle: z.string().trim().min(2, "Harcama türü gerekli."),
-  payeeIdentityNo: payeeIdentityOptional,
+  payeeIdentityNo: payeeIdentityRequired,
   channel: cashbookChannelSchema,
   bankName: opt,
   checkInstallments: opt,
   amount: decimalString,
   occurredAt: z.string().trim().min(1, "Tarih gerekli."),
-  /** UI etiketi: Açıklama */
-  invoiceNo: opt,
+  /** UI etiketi: Açıklama — zorunlu */
+  invoiceNo: z.string().trim().min(2, "Açıklama gerekli."),
   notes: opt,
 };
 
@@ -333,11 +348,11 @@ function refineCashbookExpense(
   },
   ctx: z.RefinementCtx,
 ) {
-  if (data.requesterName && data.requesterName.trim().length > 0 && data.requesterName.trim().length < 2) {
+  if (!data.requesterName?.trim() || data.requesterName.trim().length < 2) {
     ctx.addIssue({
       code: "custom",
       path: ["requesterName"],
-      message: "Talep eden adı en az 2 karakter olmalı.",
+      message: "Talep eden adı gerekli.",
     });
   }
   if (data.channel === "CHECK") {

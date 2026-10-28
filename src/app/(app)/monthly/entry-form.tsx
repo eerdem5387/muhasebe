@@ -302,6 +302,7 @@ export function IncomeAddModal({
                   id={`ch-${pay.key}`}
                   className="input"
                   value={pay.channel}
+                  required
                   onChange={(e) =>
                     updatePayment(pay.key, {
                       channel: e.target.value,
@@ -383,6 +384,18 @@ export function IncomeAddModal({
             </div>
           ))}
         </div>
+
+        <div>
+          <label className="label" htmlFor="income-notes">Açıklama</label>
+          <input
+            id="income-notes"
+            name="notes"
+            className="input"
+            placeholder="Gelir açıklaması"
+            required
+            minLength={2}
+          />
+        </div>
       </ActionForm>
     </FormModal>
   );
@@ -417,14 +430,12 @@ const EXPENSE_KIND_OPTIONS = [
   "Mobilya",
   "Bina / tadilat",
   "Banka / komisyon",
-  "Diğer",
 ] as const;
 
 export function ExpenseAddModal({ month }: { month: string }) {
   const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
   const [kind, setKind] = useState<(typeof EXPENSE_KIND_OPTIONS)[number]>("Ürün");
   const [productName, setProductName] = useState("");
-  const [hasRequester, setHasRequester] = useState(false);
   const [requesterName, setRequesterName] = useState("");
   const isProduct = kind === "Ürün";
   const expenseTitle = isProduct
@@ -438,7 +449,7 @@ export function ExpenseAddModal({ month }: { month: string }) {
       <ActionForm action={createCashbookExpenseAction} submitLabel="Kaydet">
         <input type="hidden" name="yearMonth" value={month} />
         <input type="hidden" name="expenseTitle" value={expenseTitle} />
-        <input type="hidden" name="requesterName" value={hasRequester ? requesterName : ""} />
+        <input type="hidden" name="requesterName" value={requesterName} />
 
         <div>
           <label className="label" htmlFor="expense-kind">Harcama yapılan</label>
@@ -487,36 +498,22 @@ export function ExpenseAddModal({ month }: { month: string }) {
             maxLength={200}
             placeholder="Örn. ABC Ltd. · muhasebe yazılımı aboneliği"
             autoComplete="off"
+            required
+            minLength={2}
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-700">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
-              checked={hasRequester}
-              onChange={(e) => {
-                setHasRequester(e.target.checked);
-                if (!e.target.checked) setRequesterName("");
-              }}
-            />
-            Talep eden var
-          </label>
-          {hasRequester ? (
-            <div>
-              <label className="label" htmlFor="expense-requester">Talep eden</label>
-              <input
-                id="expense-requester"
-                className="input"
-                value={requesterName}
-                onChange={(e) => setRequesterName(e.target.value)}
-                placeholder="Ad soyad"
-                required
-                minLength={2}
-              />
-            </div>
-          ) : null}
+        <div>
+          <label className="label" htmlFor="expense-requester">Talep eden</label>
+          <input
+            id="expense-requester"
+            className="input"
+            value={requesterName}
+            onChange={(e) => setRequesterName(e.target.value)}
+            placeholder="Ad soyad"
+            required
+            minLength={2}
+          />
         </div>
 
         <ChannelFields idPrefix="expense" />
@@ -533,7 +530,9 @@ export function ExpenseAddModal({ month }: { month: string }) {
             id="invoice-no"
             name="invoiceNo"
             className="input"
-            placeholder="İsteğe bağlı not veya fatura bilgisi"
+            placeholder="Harcama açıklaması"
+            required
+            minLength={2}
           />
         </div>
       </ActionForm>
@@ -559,7 +558,6 @@ export function ExpenseEditForm({
 
   const [kind, setKind] = useState(parsed.kind);
   const [productName, setProductName] = useState(parsed.productName);
-  const [hasRequester, setHasRequester] = useState(Boolean(initialRequester));
   const [requesterName, setRequesterName] = useState(initialRequester);
   const isProduct = kind === "Ürün";
   const expenseTitle = isProduct
@@ -573,7 +571,7 @@ export function ExpenseEditForm({
       <input type="hidden" name="id" value={entry.id} />
       <input type="hidden" name="yearMonth" value={month} />
       <input type="hidden" name="expenseTitle" value={expenseTitle} />
-      <input type="hidden" name="requesterName" value={hasRequester ? requesterName : ""} />
+      <input type="hidden" name="requesterName" value={requesterName} />
 
       <div>
         <label className="label" htmlFor="edit-expense-kind">Harcama yapılan</label>
@@ -623,36 +621,22 @@ export function ExpenseEditForm({
           defaultValue={entry.payeeIdentityNo ?? ""}
           placeholder="Örn. ABC Ltd. · muhasebe yazılımı aboneliği"
           autoComplete="off"
+          required
+          minLength={2}
         />
       </div>
 
-      <div className="space-y-2">
-        <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
-            checked={hasRequester}
-            onChange={(e) => {
-              setHasRequester(e.target.checked);
-              if (!e.target.checked) setRequesterName("");
-            }}
-          />
-          Talep eden var
-        </label>
-        {hasRequester ? (
-          <div>
-            <label className="label" htmlFor="edit-expense-requester">Talep eden</label>
-            <input
-              id="edit-expense-requester"
-              className="input"
-              value={requesterName}
-              onChange={(e) => setRequesterName(e.target.value)}
-              placeholder="Ad soyad"
-              required
-              minLength={2}
-            />
-          </div>
-        ) : null}
+      <div>
+        <label className="label" htmlFor="edit-expense-requester">Talep eden</label>
+        <input
+          id="edit-expense-requester"
+          className="input"
+          value={requesterName}
+          onChange={(e) => setRequesterName(e.target.value)}
+          placeholder="Ad soyad"
+          required
+          minLength={2}
+        />
       </div>
 
       <ChannelFields
@@ -692,7 +676,9 @@ export function ExpenseEditForm({
           name="invoiceNo"
           className="input"
           defaultValue={entry.invoiceNo ?? ""}
-          placeholder="İsteğe bağlı not veya fatura bilgisi"
+          placeholder="Harcama açıklaması"
+          required
+          minLength={2}
         />
       </div>
     </ActionForm>

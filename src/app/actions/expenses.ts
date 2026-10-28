@@ -99,7 +99,7 @@ export async function createExpenseRequestAction(
       data: {
         tenantId: ctx.tenantId,
         title: parsed.data.title,
-        total: null,
+        total: parsed.data.total ? new Prisma.Decimal(parsed.data.total) : null,
         requesterName: parsed.data.requesterName,
         channel: parsed.data.channel,
         notes: parsed.data.notes || null,
