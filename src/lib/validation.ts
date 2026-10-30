@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { toMoneyCanonical } from "@/lib/money";
 
-const opt = z.string().trim().optional().or(z.literal(""));
+const opt = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((v) => (v == null ? "" : String(v).trim()));
 /** Tutar: 19350,50 / 19350.50 / 19.350,50 → "19350.50" */
 const decimalString = z
   .string()

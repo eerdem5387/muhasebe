@@ -173,8 +173,8 @@ export function IncomeAddModal({
   const paymentsJson = JSON.stringify(
     payments.map((p) => ({
       channel: p.channel,
-      bankName: p.bankName || null,
-      checkInstallments: p.checkInstallments || null,
+      bankName: p.bankName?.trim() || "",
+      checkInstallments: p.checkInstallments?.trim() || "",
       amount: p.amount,
       occurredAt: p.occurredAt,
     })),

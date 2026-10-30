@@ -115,6 +115,7 @@ export async function createExpenseRequestAction(
     return { error: toErrorMessage(err) };
   }
   revalidatePath("/requests");
+  revalidatePath("/", "layout");
   return { success: "Talep gönderildi. Kurucu onayı (okul paneli) bekleniyor." };
 }
 
@@ -144,6 +145,7 @@ export async function completeExpenseRequestAction(
   }
   revalidatePath("/requests");
   revalidatePath("/monthly");
+  revalidatePath("/", "layout");
   return { success: "Harcama tutarı kaydedildi ve talep tamamlandı." };
 }
 
@@ -180,6 +182,7 @@ export async function rejectRequestAction(formData: FormData): Promise<void> {
     reason: String(formData.get("reason") ?? "") || null,
   });
   revalidatePath("/requests");
+  revalidatePath("/", "layout");
 }
 
 /** Yanlış oluşturulan talebi siler (okul paneline de bildirir). */
@@ -190,6 +193,7 @@ export async function deleteExpenseRequestAction(formData: FormData): Promise<vo
   const existing = await ctx.db.expenseRequest.findFirst({ where: { id } });
   if (!existing) return;
   await ctx.db.expenseRequest.deleteMany({ where: { id } });
+  revalidatePath("/", "layout");
   await pushFinanceEventToOkul("expense_request.deleted", ctx.tenantId, { id });
   revalidatePath("/requests");
 }

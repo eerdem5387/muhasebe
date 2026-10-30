@@ -8,6 +8,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const ctx = await getAuthContext();
   if (!ctx) redirect("/api/auth/clear");
 
+  const awaitingAmountCount = await ctx.db.expenseRequest.count({
+    where: { status: "APPROVED" },
+  });
+
   return (
     <AppShell>
       <Sidebar showSettings={canManageSettings(ctx.role, ctx.isSuperAdmin)} />
@@ -21,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             isSuperAdmin={ctx.isSuperAdmin}
             memberships={ctx.memberships}
             activeTenantId={ctx.tenantId}
+            awaitingAmountCount={awaitingAmountCount}
           />
         </div>
         <main className="flex-1 overflow-x-hidden px-4 py-6 lg:px-8 lg:py-8 print:p-0">
