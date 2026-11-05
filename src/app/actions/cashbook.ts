@@ -73,7 +73,8 @@ export async function createCashbookIncomeAction(
 
     const months = new Set<string>();
     for (const pay of payments) {
-      const yearMonth = data.yearMonth || yearMonthFromDate(pay.occurredAt);
+      // Ay her zaman işlem tarihinden — geçmiş kayıtlar doğru aya düşer.
+      const yearMonth = yearMonthFromDate(pay.occurredAt);
       months.add(yearMonth);
       const created = await ctx.db.cashbookEntry.create({
         data: {
@@ -123,7 +124,7 @@ export async function createCashbookExpenseAction(
 
   try {
     const ctx = await requireOperations();
-    const yearMonth = data.yearMonth || yearMonthFromDate(data.occurredAt);
+    const yearMonth = yearMonthFromDate(data.occurredAt);
     const noteParts = [
       data.requesterName ? `Talep eden: ${data.requesterName.trim()}` : null,
       data.notes?.trim() || null,
@@ -175,7 +176,7 @@ export async function updateCashbookExpenseAction(
     });
     if (!existing) return { error: "Gider kaydı bulunamadı." };
 
-    const yearMonth = data.yearMonth || yearMonthFromDate(data.occurredAt);
+    const yearMonth = yearMonthFromDate(data.occurredAt);
     const noteParts = [
       data.requesterName ? `Talep eden: ${data.requesterName.trim()}` : null,
       data.notes?.trim() || null,

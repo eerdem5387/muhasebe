@@ -281,7 +281,13 @@ const cashbookPaymentLineSchema = z
 
 export const cashbookIncomeSchema = z
   .object({
-    yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
+    /** Opsiyonel; kayıt ayı işlem tarihinden türetilir. */
+    yearMonth: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal(""))
+      .refine((v) => !v || /^\d{4}-\d{2}$/.test(v), { message: "Geçersiz ay." }),
     incomeCategory: z.enum(["STUDENT", "TRIP", "FOOD", "OTHER"]),
     studentId: opt,
     payerFirstName: opt,
@@ -327,7 +333,13 @@ export const cashbookIncomeSchema = z
   });
 
 const cashbookExpenseFields = {
-  yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
+  /** Opsiyonel; kayıt ayı işlem tarihinden türetilir. */
+  yearMonth: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || /^\d{4}-\d{2}$/.test(v), { message: "Geçersiz ay." }),
   requesterName: z.string().trim().min(2, "Talep eden adı gerekli."),
   expenseTitle: z.string().trim().min(2, "Harcama türü gerekli."),
   payeeIdentityNo: payeeIdentityRequired,

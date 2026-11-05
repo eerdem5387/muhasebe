@@ -1,9 +1,9 @@
 import { requireAuth, canManageOperations } from "@/lib/context";
-import { PageHeader } from "@/components/page-header";
 import { fmtMoney, fmtMonthUpper, toYearMonth } from "@/lib/format";
 import { bookedTotal, loadMonthlyLedger, plannedTotal } from "@/server/monthly-ledger";
 import { MonthToolbar } from "./month-toolbar";
 import { IncomeAddModal, ExpenseAddModal } from "./entry-form";
+import { HistoricalCashbookModal } from "./historical-entry-modal";
 import { CashbookPanel } from "./cashbook-panel";
 import { ChannelSpendCard } from "./channel-spend";
 
@@ -36,12 +36,14 @@ export default async function MonthlyReportPage({
 
   return (
     <div>
-      <div className="print:hidden">
-        <PageHeader
-          title="Aylık gelir-gider"
-          description="Elle eklenen kalemler normal görünür. Yalnızca Gelir planı ile oluşturulan satırlar Planlanmış / Hesaba geçti etiketiyle gelir."
-          actions={<MonthToolbar month={month} />}
-        />
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-4 print:hidden">
+        <div className="min-w-0 space-y-2">
+          <h1 className="text-2xl font-bold tracking-tight text-ink-950 sm:text-[1.75rem]">
+            Aylık gelir-gider
+          </h1>
+          {canWrite ? <HistoricalCashbookModal students={students} /> : null}
+        </div>
+        <MonthToolbar month={month} />
       </div>
 
       <div className="monthly-report overflow-hidden">

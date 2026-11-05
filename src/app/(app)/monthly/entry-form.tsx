@@ -145,14 +145,20 @@ function parseRequester(notes: string | null | undefined): string {
   return m?.[1]?.trim() || "";
 }
 
-export function IncomeAddModal({
-  month,
+export function CashbookIncomeForm({
   students,
+  defaultDay,
+  yearMonth,
+  idPrefix = "income",
+  submitLabel = "Kaydet",
 }: {
-  month: string;
   students: CashbookStudentOption[];
+  defaultDay: string;
+  /** Verilirse gizli alan olarak gönderilir; ay yine işlem tarihinden türetilir. */
+  yearMonth?: string;
+  idPrefix?: string;
+  submitLabel?: string;
 }) {
-  const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
   const [category, setCategory] = useState("STUDENT");
   const [studentQuery, setStudentQuery] = useState("");
   const [studentId, setStudentId] = useState("");
@@ -185,218 +191,232 @@ export function IncomeAddModal({
   }
 
   return (
-    <FormModal buttonLabel="Gelir ekle" title="Gelir ekle" buttonClassName="btn-secondary !py-1.5 text-xs" size="lg">
-      <ActionForm action={createCashbookIncomeAction} submitLabel="Kaydet">
-        <input type="hidden" name="yearMonth" value={month} />
-        <input type="hidden" name="paymentsJson" value={paymentsJson} />
-        <div>
-          <label className="label" htmlFor="income-category">Gelir kalemi</label>
-          <select
-            id="income-category"
-            name="incomeCategory"
-            className="input"
-            required
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value);
-              setStudentId("");
-              setStudentQuery("");
-            }}
-          >
-            <option value="STUDENT">Öğrenci</option>
-            <option value="TRIP">Gezi</option>
-            <option value="FOOD">Yemek</option>
-            <option value="OTHER">Diğer</option>
-          </select>
-        </div>
+    <ActionForm action={createCashbookIncomeAction} submitLabel={submitLabel}>
+      {yearMonth ? <input type="hidden" name="yearMonth" value={yearMonth} /> : null}
+      <input type="hidden" name="paymentsJson" value={paymentsJson} />
+      <div>
+        <label className="label" htmlFor={`${idPrefix}-category`}>Gelir kalemi</label>
+        <select
+          id={`${idPrefix}-category`}
+          name="incomeCategory"
+          className="input"
+          required
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value);
+            setStudentId("");
+            setStudentQuery("");
+          }}
+        >
+          <option value="STUDENT">Öğrenci</option>
+          <option value="TRIP">Gezi</option>
+          <option value="FOOD">Yemek</option>
+          <option value="OTHER">Diğer</option>
+        </select>
+      </div>
 
-        {isStudent ? (
-          <div className="space-y-2">
-            <label className="label" htmlFor="student-search">Öğrenci ara</label>
-            <input
-              id="student-search"
-              className="input"
-              placeholder="Ad yazarak arayın…"
-              value={studentQuery}
-              onChange={(e) => setStudentQuery(e.target.value)}
-              autoComplete="off"
-            />
-            <input type="hidden" name="studentId" value={studentId} />
-            <div className="max-h-44 overflow-y-auto rounded-lg border border-slate-200">
-              {filteredStudents.map((s) => {
-                const active = s.id === studentId;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50 ${
-                      active ? "bg-brand-50 text-brand-800" : "text-slate-700"
-                    }`}
-                    onClick={() => {
-                      setStudentId(s.id);
-                      setStudentQuery(s.fullName);
-                    }}
-                  >
-                    <span>
-                      {s.fullName}
-                      {s.classroom ? ` · ${s.classroom}` : ""}
-                    </span>
-                  </button>
-                );
-              })}
-              {filteredStudents.length === 0 ? (
-                <p className="px-3 py-2 text-sm text-slate-400">Öğrenci bulunamadı.</p>
+      {isStudent ? (
+        <div className="space-y-2">
+          <label className="label" htmlFor={`${idPrefix}-student-search`}>Öğrenci ara</label>
+          <input
+            id={`${idPrefix}-student-search`}
+            className="input"
+            placeholder="Ad yazarak arayın…"
+            value={studentQuery}
+            onChange={(e) => setStudentQuery(e.target.value)}
+            autoComplete="off"
+          />
+          <input type="hidden" name="studentId" value={studentId} />
+          <div className="max-h-44 overflow-y-auto rounded-lg border border-slate-200">
+            {filteredStudents.map((s) => {
+              const active = s.id === studentId;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50 ${
+                    active ? "bg-brand-50 text-brand-800" : "text-slate-700"
+                  }`}
+                  onClick={() => {
+                    setStudentId(s.id);
+                    setStudentQuery(s.fullName);
+                  }}
+                >
+                  <span>
+                    {s.fullName}
+                    {s.classroom ? ` · ${s.classroom}` : ""}
+                  </span>
+                </button>
+              );
+            })}
+            {filteredStudents.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-slate-400">Öğrenci bulunamadı.</p>
+            ) : null}
+          </div>
+          {selectedStudent ? (
+            <p className="text-xs text-slate-500">Seçili: {selectedStudent.fullName}</p>
+          ) : (
+            <p className="text-xs text-amber-700">Öğrenci seçimi zorunlu.</p>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label" htmlFor={`${idPrefix}-payer-first`}>Ödeme yapan — Ad</label>
+            <input id={`${idPrefix}-payer-first`} name="payerFirstName" className="input" required />
+          </div>
+          <div>
+            <label className="label" htmlFor={`${idPrefix}-payer-last`}>Soyad</label>
+            <input id={`${idPrefix}-payer-last`} name="payerLastName" className="input" required />
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ödemeler</p>
+          <button
+            type="button"
+            className="btn-secondary !py-1 text-xs"
+            onClick={() => setPayments((rows) => [...rows, newPaymentLine(defaultDay)])}
+          >
+            + Ödeme ekle
+          </button>
+        </div>
+        <p className="text-xs text-slate-500">
+          Aynı öğrenci için nakit + kredi kartı gibi birden fazla kanalı, farklı tarihlerle girebilirsiniz.
+          Geçmiş bir tarih seçerseniz kayıt o aya düşer.
+        </p>
+
+        {payments.map((pay, index) => (
+          <div key={pay.key} className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-700">Ödeme #{index + 1}</p>
+              {payments.length > 1 ? (
+                <button
+                  type="button"
+                  className="text-xs text-red-600 hover:underline"
+                  onClick={() => setPayments((rows) => rows.filter((r) => r.key !== pay.key))}
+                >
+                  Sil
+                </button>
               ) : null}
             </div>
-            {selectedStudent ? (
-              <p className="text-xs text-slate-500">Seçili: {selectedStudent.fullName}</p>
-            ) : (
-              <p className="text-xs text-amber-700">Öğrenci seçimi zorunlu.</p>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="payer-first">Ödeme yapan — Ad</label>
-              <input id="payer-first" name="payerFirstName" className="input" required />
+              <label className="label" htmlFor={`${idPrefix}-ch-${pay.key}`}>Ödeme kanalı</label>
+              <select
+                id={`${idPrefix}-ch-${pay.key}`}
+                className="input"
+                value={pay.channel}
+                required
+                onChange={(e) =>
+                  updatePayment(pay.key, {
+                    channel: e.target.value,
+                    bankName:
+                      e.target.value === "BANK" ||
+                      e.target.value === "CREDIT_CARD" ||
+                      e.target.value === "CHECK"
+                        ? pay.bankName
+                        : "",
+                  })
+                }
+              >
+                {INCOME_CHANNEL_OPTIONS.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label className="label" htmlFor="payer-last">Soyad</label>
-              <input id="payer-last" name="payerLastName" className="input" required />
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ödemeler</p>
-            <button
-              type="button"
-              className="btn-secondary !py-1 text-xs"
-              onClick={() => setPayments((rows) => [...rows, newPaymentLine(defaultDay)])}
-            >
-              + Ödeme ekle
-            </button>
-          </div>
-          <p className="text-xs text-slate-500">
-            Aynı öğrenci için nakit + kredi kartı gibi birden fazla kanalı, farklı tarihlerle girebilirsiniz.
-          </p>
-
-          {payments.map((pay, index) => (
-            <div key={pay.key} className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-700">Ödeme #{index + 1}</p>
-                {payments.length > 1 ? (
-                  <button
-                    type="button"
-                    className="text-xs text-red-600 hover:underline"
-                    onClick={() => setPayments((rows) => rows.filter((r) => r.key !== pay.key))}
-                  >
-                    Sil
-                  </button>
-                ) : null}
-              </div>
+            {pay.channel === "BANK" && (
               <div>
-                <label className="label" htmlFor={`ch-${pay.key}`}>Ödeme kanalı</label>
-                <select
-                  id={`ch-${pay.key}`}
+                <label className="label" htmlFor={`${idPrefix}-bank-${pay.key}`}>Hangi banka hesabına?</label>
+                <input
+                  id={`${idPrefix}-bank-${pay.key}`}
                   className="input"
-                  value={pay.channel}
+                  value={pay.bankName}
+                  onChange={(e) => updatePayment(pay.key, { bankName: e.target.value })}
+                  placeholder="Örn. Ziraat Bankası Vadeli hesap"
                   required
-                  onChange={(e) =>
-                    updatePayment(pay.key, {
-                      channel: e.target.value,
-                      bankName:
-                        e.target.value === "BANK" ||
-                        e.target.value === "CREDIT_CARD" ||
-                        e.target.value === "CHECK"
-                          ? pay.bankName
-                          : "",
-                    })
-                  }
-                >
-                  {INCOME_CHANNEL_OPTIONS.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
+                  minLength={2}
+                />
               </div>
-              {pay.channel === "BANK" && (
-                <div>
-                  <label className="label" htmlFor={`bank-${pay.key}`}>Hangi banka hesabına?</label>
-                  <input
-                    id={`bank-${pay.key}`}
-                    className="input"
-                    value={pay.bankName}
-                    onChange={(e) => updatePayment(pay.key, { bankName: e.target.value })}
-                    placeholder="Örn. Ziraat Bankası Vadeli hesap"
-                    required
-                    minLength={2}
-                  />
-                </div>
-              )}
-              {(pay.channel === "CREDIT_CARD" || pay.channel === "CHECK") && (
-                <div>
-                  <label className="label" htmlFor={`bank-${pay.key}`}>Banka adı</label>
-                  <input
-                    id={`bank-${pay.key}`}
-                    className="input"
-                    value={pay.bankName}
-                    onChange={(e) => updatePayment(pay.key, { bankName: e.target.value })}
-                    required
-                  />
-                </div>
-              )}
-              {pay.channel === "CHECK" && (
-                <div>
-                  <label className="label" htmlFor={`inst-${pay.key}`}>Çek vade sayısı</label>
-                  <input
-                    id={`inst-${pay.key}`}
-                    type="number"
-                    min={1}
-                    max={48}
-                    className="input"
-                    value={pay.checkInstallments}
-                    onChange={(e) => updatePayment(pay.key, { checkInstallments: e.target.value })}
-                    required
-                  />
-                </div>
-              )}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <MoneyInput
-                  id={`amt-${pay.key}`}
-                  label="Tutar"
-                  value={pay.amount}
-                  onValueChange={(c) => updatePayment(pay.key, { amount: c })}
+            )}
+            {(pay.channel === "CREDIT_CARD" || pay.channel === "CHECK") && (
+              <div>
+                <label className="label" htmlFor={`${idPrefix}-bank-${pay.key}`}>Banka adı</label>
+                <input
+                  id={`${idPrefix}-bank-${pay.key}`}
+                  className="input"
+                  value={pay.bankName}
+                  onChange={(e) => updatePayment(pay.key, { bankName: e.target.value })}
                   required
                 />
-                <div>
-                  <label className="label" htmlFor={`date-${pay.key}`}>Tarih</label>
-                  <input
-                    id={`date-${pay.key}`}
-                    type="date"
-                    className="input"
-                    value={pay.occurredAt}
-                    onChange={(e) => updatePayment(pay.key, { occurredAt: e.target.value })}
-                    required
-                  />
-                </div>
+              </div>
+            )}
+            {pay.channel === "CHECK" && (
+              <div>
+                <label className="label" htmlFor={`${idPrefix}-inst-${pay.key}`}>Çek vade sayısı</label>
+                <input
+                  id={`${idPrefix}-inst-${pay.key}`}
+                  type="number"
+                  min={1}
+                  max={48}
+                  className="input"
+                  value={pay.checkInstallments}
+                  onChange={(e) => updatePayment(pay.key, { checkInstallments: e.target.value })}
+                  required
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <MoneyInput
+                id={`${idPrefix}-amt-${pay.key}`}
+                label="Tutar"
+                value={pay.amount}
+                onValueChange={(c) => updatePayment(pay.key, { amount: c })}
+                required
+              />
+              <div>
+                <label className="label" htmlFor={`${idPrefix}-date-${pay.key}`}>Tarih</label>
+                <input
+                  id={`${idPrefix}-date-${pay.key}`}
+                  type="date"
+                  className="input"
+                  value={pay.occurredAt}
+                  onChange={(e) => updatePayment(pay.key, { occurredAt: e.target.value })}
+                  required
+                />
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
 
-        <div>
-          <label className="label" htmlFor="income-notes">Açıklama</label>
-          <input
-            id="income-notes"
-            name="notes"
-            className="input"
-            placeholder="Gelir açıklaması"
-            required
-            minLength={2}
-          />
-        </div>
-      </ActionForm>
+      <div>
+        <label className="label" htmlFor={`${idPrefix}-notes`}>Açıklama</label>
+        <input
+          id={`${idPrefix}-notes`}
+          name="notes"
+          className="input"
+          placeholder="Gelir açıklaması"
+          required
+          minLength={2}
+        />
+      </div>
+    </ActionForm>
+  );
+}
+
+export function IncomeAddModal({
+  month,
+  students,
+}: {
+  month: string;
+  students: CashbookStudentOption[];
+}) {
+  const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
+  return (
+    <FormModal buttonLabel="Gelir ekle" title="Gelir ekle" buttonClassName="btn-secondary !py-1.5 text-xs" size="lg">
+      <CashbookIncomeForm students={students} defaultDay={defaultDay} yearMonth={month} />
     </FormModal>
   );
 }
@@ -432,8 +452,17 @@ const EXPENSE_KIND_OPTIONS = [
   "Banka / komisyon",
 ] as const;
 
-export function ExpenseAddModal({ month }: { month: string }) {
-  const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
+export function CashbookExpenseForm({
+  defaultDay,
+  yearMonth,
+  idPrefix = "expense",
+  submitLabel = "Kaydet",
+}: {
+  defaultDay: string;
+  yearMonth?: string;
+  idPrefix?: string;
+  submitLabel?: string;
+}) {
   const [kind, setKind] = useState<(typeof EXPENSE_KIND_OPTIONS)[number]>("Ürün");
   const [productName, setProductName] = useState("");
   const [requesterName, setRequesterName] = useState("");
@@ -445,97 +474,111 @@ export function ExpenseAddModal({ month }: { month: string }) {
     : kind;
 
   return (
+    <ActionForm action={createCashbookExpenseAction} submitLabel={submitLabel}>
+      {yearMonth ? <input type="hidden" name="yearMonth" value={yearMonth} /> : null}
+      <input type="hidden" name="expenseTitle" value={expenseTitle} />
+      <input type="hidden" name="requesterName" value={requesterName} />
+
+      <div>
+        <label className="label" htmlFor={`${idPrefix}-kind`}>Harcama yapılan</label>
+        <select
+          id={`${idPrefix}-kind`}
+          className="input"
+          value={kind}
+          onChange={(e) => {
+            const next = e.target.value as (typeof EXPENSE_KIND_OPTIONS)[number];
+            setKind(next);
+            if (next !== "Ürün") setProductName("");
+          }}
+          required
+        >
+          {EXPENSE_KIND_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {isProduct ? (
+        <div>
+          <label className="label" htmlFor={`${idPrefix}-product`}>Ürün adı</label>
+          <input
+            id={`${idPrefix}-product`}
+            className="input"
+            value={productName}
+            onChange={(e) => setProductName(e.target.value)}
+            placeholder="Örn. mikrofon, projeksiyon, yazıcı toneri"
+            required
+            minLength={2}
+          />
+        </div>
+      ) : null}
+
+      <div>
+        <label className="label" htmlFor={`${idPrefix}-payee`}>
+          Ödeme Yapılan Kişi yada Kurum / Tedarikçi / Harcamanın Adı
+        </label>
+        <input
+          id={`${idPrefix}-payee`}
+          name="payeeIdentityNo"
+          className="input"
+          maxLength={200}
+          placeholder="Örn. ABC Ltd. · muhasebe yazılımı aboneliği"
+          autoComplete="off"
+          required
+          minLength={2}
+        />
+      </div>
+
+      <div>
+        <label className="label" htmlFor={`${idPrefix}-requester`}>Talep eden</label>
+        <input
+          id={`${idPrefix}-requester`}
+          className="input"
+          value={requesterName}
+          onChange={(e) => setRequesterName(e.target.value)}
+          placeholder="Ad soyad"
+          required
+          minLength={2}
+        />
+      </div>
+
+      <ChannelFields idPrefix={idPrefix} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <MoneyInput id={`${idPrefix}-amount`} name="amount" label="Tutar" required />
+        <div>
+          <label className="label" htmlFor={`${idPrefix}-date`}>Tarih</label>
+          <input
+            id={`${idPrefix}-date`}
+            name="occurredAt"
+            type="date"
+            className="input"
+            defaultValue={defaultDay}
+            required
+          />
+        </div>
+      </div>
+      <div>
+        <label className="label" htmlFor={`${idPrefix}-invoice`}>Açıklama</label>
+        <input
+          id={`${idPrefix}-invoice`}
+          name="invoiceNo"
+          className="input"
+          placeholder="Harcama açıklaması"
+          required
+          minLength={2}
+        />
+      </div>
+    </ActionForm>
+  );
+}
+
+export function ExpenseAddModal({ month }: { month: string }) {
+  const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
+  return (
     <FormModal buttonLabel="Gider ekle" title="Gider ekle" buttonClassName="btn-secondary !py-1.5 text-xs" size="lg">
-      <ActionForm action={createCashbookExpenseAction} submitLabel="Kaydet">
-        <input type="hidden" name="yearMonth" value={month} />
-        <input type="hidden" name="expenseTitle" value={expenseTitle} />
-        <input type="hidden" name="requesterName" value={requesterName} />
-
-        <div>
-          <label className="label" htmlFor="expense-kind">Harcama yapılan</label>
-          <select
-            id="expense-kind"
-            className="input"
-            value={kind}
-            onChange={(e) => {
-              const next = e.target.value as (typeof EXPENSE_KIND_OPTIONS)[number];
-              setKind(next);
-              if (next !== "Ürün") setProductName("");
-            }}
-            required
-          >
-            {EXPENSE_KIND_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {isProduct ? (
-          <div>
-            <label className="label" htmlFor="expense-product">Ürün adı</label>
-            <input
-              id="expense-product"
-              className="input"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              placeholder="Örn. mikrofon, projeksiyon, yazıcı toneri"
-              required
-              minLength={2}
-            />
-          </div>
-        ) : null}
-
-        <div>
-          <label className="label" htmlFor="payee-id">
-            Ödeme Yapılan Kişi yada Kurum / Tedarikçi / Harcamanın Adı
-          </label>
-          <input
-            id="payee-id"
-            name="payeeIdentityNo"
-            className="input"
-            maxLength={200}
-            placeholder="Örn. ABC Ltd. · muhasebe yazılımı aboneliği"
-            autoComplete="off"
-            required
-            minLength={2}
-          />
-        </div>
-
-        <div>
-          <label className="label" htmlFor="expense-requester">Talep eden</label>
-          <input
-            id="expense-requester"
-            className="input"
-            value={requesterName}
-            onChange={(e) => setRequesterName(e.target.value)}
-            placeholder="Ad soyad"
-            required
-            minLength={2}
-          />
-        </div>
-
-        <ChannelFields idPrefix="expense" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <MoneyInput id="expense-amount" name="amount" label="Tutar" required />
-          <div>
-            <label className="label" htmlFor="expense-date">Tarih</label>
-            <input id="expense-date" name="occurredAt" type="date" className="input" defaultValue={defaultDay} required />
-          </div>
-        </div>
-        <div>
-          <label className="label" htmlFor="invoice-no">Açıklama</label>
-          <input
-            id="invoice-no"
-            name="invoiceNo"
-            className="input"
-            placeholder="Harcama açıklaması"
-            required
-            minLength={2}
-          />
-        </div>
-      </ActionForm>
+      <CashbookExpenseForm defaultDay={defaultDay} yearMonth={month} />
     </FormModal>
   );
 }
