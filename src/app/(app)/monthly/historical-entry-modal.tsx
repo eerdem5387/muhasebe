@@ -7,6 +7,7 @@ import {
   CashbookExpenseForm,
   CashbookIncomeForm,
   type CashbookStudentOption,
+  type NamedAccountOption,
 } from "./entry-form";
 
 type Side = "INCOME" | "EXPENSE";
@@ -14,8 +15,12 @@ type Side = "INCOME" | "EXPENSE";
 /** Başlık altındaki geçmiş tarihli gelir/gider giriş kapısı. */
 export function HistoricalCashbookModal({
   students,
+  bankAccounts = [],
+  cardBanks = [],
 }: {
   students: CashbookStudentOption[];
+  bankAccounts?: NamedAccountOption[];
+  cardBanks?: NamedAccountOption[];
 }) {
   const [side, setSide] = useState<Side>("INCOME");
   const defaultDay = todayISO();
@@ -65,6 +70,8 @@ export function HistoricalCashbookModal({
             defaultDay={defaultDay}
             idPrefix="hist-income"
             submitLabel="Geçmiş geliri kaydet"
+            bankAccounts={bankAccounts}
+            cardBanks={cardBanks}
           />
         ) : (
           <CashbookExpenseForm
@@ -72,6 +79,8 @@ export function HistoricalCashbookModal({
             defaultDay={defaultDay}
             idPrefix="hist-expense"
             submitLabel="Geçmiş gideri kaydet"
+            bankAccounts={bankAccounts}
+            cardBanks={cardBanks}
           />
         )}
       </div>

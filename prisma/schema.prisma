@@ -111,6 +111,7 @@ model Tenant {
   students        Student[]
   enrollments     Enrollment[]
   cardBanks       CardBankSetting[]
+  bankAccounts    BankAccountSetting[]
   scheduleLines   IncomeScheduleLine[]
   collections     Collection[]
   categories      LedgerCategory[]
@@ -183,6 +184,20 @@ model CardBankSetting {
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
 
+  @@index([tenantId])
+}
+
+/// EFT/Havale ve çek işlemlerinde seçilen banka hesapları
+model BankAccountSetting {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
   @@index([tenantId])
 }
 

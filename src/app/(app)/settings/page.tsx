@@ -1,6 +1,13 @@
 import { redirect } from "next/navigation";
 import { requireAuth, canManageSettings } from "@/lib/context";
-import { createCardBankAction, createCategoryAction, deleteCardBankAction, deleteCategoryAction } from "@/app/actions/settings";
+import {
+  createBankAccountAction,
+  createCardBankAction,
+  createCategoryAction,
+  deleteBankAccountAction,
+  deleteCardBankAction,
+  deleteCategoryAction,
+} from "@/app/actions/settings";
 import { createSchoolWithAdminAction, createUserAction, deleteUserAction } from "@/app/actions/auth";
 import { runSchoolSyncAction } from "@/app/actions/sync";
 import { PageHeader } from "@/components/page-header";
@@ -16,9 +23,10 @@ export default async function SettingsPage() {
     redirect("/");
   }
 
-  const [categories, banks, memberships, lastSync] = await Promise.all([
+  const [categories, banks, bankAccounts, memberships, lastSync] = await Promise.all([
     ctx.db.ledgerCategory.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] }),
     ctx.db.cardBankSetting.findMany({ orderBy: { bankName: "asc" } }),
+    ctx.db.bankAccountSetting.findMany({ orderBy: { name: "asc" } }),
     prisma.tenantUser.findMany({
       where: { tenantId: ctx.tenantId },
       include: { user: true },
@@ -32,7 +40,7 @@ export default async function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Ayarlar" description="Kalemler, kredi kartı anlaşmaları ve kullanıcılar." />
+      <PageHeader title="Ayarlar" description="Kalemler, banka hesapları, kredi kartları ve kullanıcılar." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-1 font-semibold tracking-tight text-ink-950">Okul kaydından öğrenci çek</h2>
@@ -114,7 +122,43 @@ export default async function SettingsPage() {
         </div>
 
         <div className="card p-5">
-          <h2 className="mb-4 font-semibold">Kredi kartı banka anlaşmaları</h2>
+          <h2 className="mb-1 font-semibold">Banka hesapları</h2>
+          <p className="mb-4 text-sm text-ink-500">
+            EFT / havale ve çek işlemlerinde gelir-gider formlarında seçilir.
+          </p>
+          <ul className="mb-4 divide-y divide-ink-100 text-sm">
+            {bankAccounts.map((a) => (
+              <li key={a.id} className="flex items-center justify-between py-2">
+                <span>{a.name}</span>
+                <MiniForm action={deleteBankAccountAction}>
+                  <input type="hidden" name="id" value={a.id} />
+                  <button className="text-xs text-red-600">Sil</button>
+                </MiniForm>
+              </li>
+            ))}
+            {bankAccounts.length === 0 ? (
+              <li className="py-2 text-ink-400">Henüz banka hesabı yok.</li>
+            ) : null}
+          </ul>
+          <ActionForm action={createBankAccountAction} submitLabel="Hesap ekle">
+            <div>
+              <label className="label" htmlFor="accountName">Hesap adı</label>
+              <input
+                id="accountName"
+                name="name"
+                className="input"
+                required
+                placeholder="Örn. Ziraat Vadeli Hesap"
+              />
+            </div>
+          </ActionForm>
+        </div>
+
+        <div className="card p-5">
+          <h2 className="mb-1 font-semibold">Kredi kartları</h2>
+          <p className="mb-4 text-sm text-ink-500">
+            Kredi kartı ödemelerinde seçilir; bloke günü öğrenci kayıtları için de kullanılır.
+          </p>
           <ul className="mb-4 divide-y divide-ink-100 text-sm">
             {banks.map((b) => (
               <li key={b.id} className="flex items-center justify-between py-2">
@@ -125,11 +169,14 @@ export default async function SettingsPage() {
                 </MiniForm>
               </li>
             ))}
+            {banks.length === 0 ? (
+              <li className="py-2 text-ink-400">Henüz kredi kartı yok.</li>
+            ) : null}
           </ul>
-          <ActionForm action={createCardBankAction} submitLabel="Anlaşma ekle">
+          <ActionForm action={createCardBankAction} submitLabel="Kart ekle">
             <div>
-              <label className="label" htmlFor="bankName">Banka adı</label>
-              <input id="bankName" name="bankName" className="input" required placeholder="Ziraat Bankası" />
+              <label className="label" htmlFor="bankName">Kart / banka adı</label>
+              <input id="bankName" name="bankName" className="input" required placeholder="Ziraat Kurumsal Kart" />
             </div>
             <div>
               <label className="label" htmlFor="blockDays">Bloke süresi (gün)</label>

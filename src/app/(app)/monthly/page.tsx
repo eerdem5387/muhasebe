@@ -21,14 +21,26 @@ export default async function MonthlyReportPage({
   const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const month = parseMonth((await searchParams).month);
 
-  const [{ incomeRows, expenseRows }, students] = await Promise.all([
+  const [{ incomeRows, expenseRows }, students, bankAccountRows, cardBankRows] = await Promise.all([
     loadMonthlyLedger(ctx.db, month),
     ctx.db.student.findMany({
       select: { id: true, fullName: true, classroom: true },
       orderBy: { fullName: "asc" },
       take: 2000,
     }),
+    ctx.db.bankAccountSetting.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    ctx.db.cardBankSetting.findMany({
+      where: { active: true },
+      orderBy: { bankName: "asc" },
+      select: { id: true, bankName: true },
+    }),
   ]);
+  const bankAccounts = bankAccountRows.map((a) => ({ id: a.id, name: a.name }));
+  const cardBanks = cardBankRows.map((c) => ({ id: c.id, name: c.bankName }));
   const incomeBooked = bookedTotal(incomeRows);
   const incomePlanned = plannedTotal(incomeRows);
   const expenseBooked = bookedTotal(expenseRows);
@@ -41,7 +53,13 @@ export default async function MonthlyReportPage({
           <h1 className="text-2xl font-bold tracking-tight text-ink-950 sm:text-[1.75rem]">
             Aylık gelir-gider
           </h1>
-          {canWrite ? <HistoricalCashbookModal students={students} /> : null}
+          {canWrite ? (
+            <HistoricalCashbookModal
+              students={students}
+              bankAccounts={bankAccounts}
+              cardBanks={cardBanks}
+            />
+          ) : null}
         </div>
         <MonthToolbar month={month} />
       </div>
@@ -60,7 +78,12 @@ export default async function MonthlyReportPage({
               <h3 className="text-base font-bold uppercase tracking-wide text-slate-900">Gelirler</h3>
               {canWrite ? (
                 <div className="print:hidden">
-                  <IncomeAddModal month={month} students={students} />
+                  <IncomeAddModal
+                    month={month}
+                    students={students}
+                    bankAccounts={bankAccounts}
+                    cardBanks={cardBanks}
+                  />
                 </div>
               ) : null}
             </div>
@@ -71,6 +94,8 @@ export default async function MonthlyReportPage({
               canWrite={canWrite}
               bookedTotal={incomeBooked}
               plannedTotal={incomePlanned}
+              bankAccounts={bankAccounts}
+              cardBanks={cardBanks}
             />
           </section>
 
@@ -79,7 +104,11 @@ export default async function MonthlyReportPage({
               <h3 className="text-base font-bold uppercase tracking-wide text-slate-900">Giderler</h3>
               {canWrite ? (
                 <div className="print:hidden">
-                  <ExpenseAddModal month={month} />
+                  <ExpenseAddModal
+                    month={month}
+                    bankAccounts={bankAccounts}
+                    cardBanks={cardBanks}
+                  />
                 </div>
               ) : null}
             </div>
@@ -89,6 +118,8 @@ export default async function MonthlyReportPage({
               rows={expenseRows}
               canWrite={canWrite}
               bookedTotal={expenseBooked}
+              bankAccounts={bankAccounts}
+              cardBanks={cardBanks}
             />
           </section>
         </div>

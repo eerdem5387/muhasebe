@@ -38,8 +38,12 @@ export const categorySchema = z.object({
 });
 
 export const cardBankSchema = z.object({
-  bankName: z.string().trim().min(2, "Banka adı gerekli."),
+  bankName: z.string().trim().min(2, "Kredi kartı / banka adı gerekli."),
   blockDays: z.coerce.number().int().min(0).max(365),
+});
+
+export const bankAccountSchema = z.object({
+  name: z.string().trim().min(2, "Hesap adı gerekli."),
 });
 
 export const studentSchema = z.object({

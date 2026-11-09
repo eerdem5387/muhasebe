@@ -19,6 +19,11 @@ export type CashbookStudentOption = {
   classroom: string | null;
 };
 
+export type NamedAccountOption = {
+  id: string;
+  name: string;
+};
+
 type PaymentLine = {
   key: string;
   channel: string;
@@ -56,16 +61,75 @@ function newPaymentLine(defaultDay: string): PaymentLine {
   };
 }
 
+function AccountSelect({
+  id,
+  name,
+  label,
+  options,
+  value,
+  defaultValue,
+  onChange,
+  emptyHint,
+}: {
+  id: string;
+  /** Form alanı adı; gelir satırlarında paymentsJson kullanıldığı için verilmez. */
+  name?: string;
+  label: string;
+  options: NamedAccountOption[];
+  value?: string;
+  defaultValue?: string;
+  onChange?: (value: string) => void;
+  emptyHint: string;
+}) {
+  const controlled = value !== undefined;
+  return (
+    <div className="space-y-1.5">
+      <label className="label" htmlFor={id}>{label}</label>
+      <select
+        id={id}
+        {...(name ? { name } : {})}
+        className="input"
+        required
+        {...(controlled
+          ? { value, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => onChange?.(e.target.value) }
+          : { defaultValue: defaultValue || "" })}
+      >
+        <option value="" disabled>
+          Seçin…
+        </option>
+        {options.map((o) => (
+          <option key={o.id} value={o.name}>
+            {o.name}
+          </option>
+        ))}
+        {controlled && value && !options.some((o) => o.name === value) ? (
+          <option value={value}>{value}</option>
+        ) : null}
+        {!controlled && defaultValue && !options.some((o) => o.name === defaultValue) ? (
+          <option value={defaultValue}>{defaultValue}</option>
+        ) : null}
+      </select>
+      {options.length === 0 ? (
+        <p className="text-xs text-amber-700">{emptyHint}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function ChannelFields({
   idPrefix,
   defaultChannel = "CASH",
   defaultBankName = "",
   defaultCheckInstallments = "",
+  bankAccounts = [],
+  cardBanks = [],
 }: {
   idPrefix: string;
   defaultChannel?: string;
   defaultBankName?: string;
   defaultCheckInstallments?: string;
+  bankAccounts?: NamedAccountOption[];
+  cardBanks?: NamedAccountOption[];
 }) {
   const [channel, setChannel] = useState(defaultChannel);
   return (
@@ -85,17 +149,27 @@ function ChannelFields({
           ))}
         </select>
       </div>
-      {(channel === "CREDIT_CARD" || channel === "CHECK") && (
-        <div>
-          <label className="label" htmlFor={`${idPrefix}-bank`}>Banka adı</label>
-          <input
-            id={`${idPrefix}-bank`}
-            name="bankName"
-            className="input"
-            defaultValue={defaultBankName}
-            required
-          />
-        </div>
+      {(channel === "BANK" || channel === "CHECK") && (
+        <AccountSelect
+          key={`${idPrefix}-${channel}-bank`}
+          id={`${idPrefix}-bank`}
+          name="bankName"
+          label={channel === "BANK" ? "Banka hesabı" : "Çek bankası / hesap"}
+          options={bankAccounts}
+          defaultValue={defaultBankName}
+          emptyHint="Ayarlar’dan banka hesabı ekleyin."
+        />
+      )}
+      {channel === "CREDIT_CARD" && (
+        <AccountSelect
+          key={`${idPrefix}-card`}
+          id={`${idPrefix}-bank`}
+          name="bankName"
+          label="Kredi kartı"
+          options={cardBanks}
+          defaultValue={defaultBankName}
+          emptyHint="Ayarlar’dan kredi kartı ekleyin."
+        />
       )}
       {channel === "CHECK" && (
         <div>
@@ -123,22 +197,6 @@ function toDateInputValue(iso: string): string {
   return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
 }
 
-function parseExpenseKind(title: string | null | undefined): {
-  kind: string;
-  productName: string;
-  extraKind: string | null;
-} {
-  const raw = title?.trim() || "";
-  if (raw.startsWith("Ürün · ")) {
-    return { kind: "Ürün", productName: raw.slice("Ürün · ".length).trim(), extraKind: null };
-  }
-  if ((EXPENSE_KIND_OPTIONS as readonly string[]).includes(raw)) {
-    return { kind: raw, productName: "", extraKind: null };
-  }
-  if (raw) return { kind: raw, productName: "", extraKind: raw };
-  return { kind: "Ürün", productName: "", extraKind: null };
-}
-
 function parseRequester(notes: string | null | undefined): string {
   if (!notes) return "";
   const m = notes.match(/Talep eden:\s*([^·]+)/i);
@@ -151,6 +209,8 @@ export function CashbookIncomeForm({
   yearMonth,
   idPrefix = "income",
   submitLabel = "Kaydet",
+  bankAccounts = [],
+  cardBanks = [],
 }: {
   students: CashbookStudentOption[];
   defaultDay: string;
@@ -158,6 +218,8 @@ export function CashbookIncomeForm({
   yearMonth?: string;
   idPrefix?: string;
   submitLabel?: string;
+  bankAccounts?: NamedAccountOption[];
+  cardBanks?: NamedAccountOption[];
 }) {
   const [category, setCategory] = useState("STUDENT");
   const [studentQuery, setStudentQuery] = useState("");
@@ -326,31 +388,25 @@ export function CashbookIncomeForm({
                 ))}
               </select>
             </div>
-            {pay.channel === "BANK" && (
-              <div>
-                <label className="label" htmlFor={`${idPrefix}-bank-${pay.key}`}>Hangi banka hesabına?</label>
-                <input
-                  id={`${idPrefix}-bank-${pay.key}`}
-                  className="input"
-                  value={pay.bankName}
-                  onChange={(e) => updatePayment(pay.key, { bankName: e.target.value })}
-                  placeholder="Örn. Ziraat Bankası Vadeli hesap"
-                  required
-                  minLength={2}
-                />
-              </div>
+              {(pay.channel === "BANK" || pay.channel === "CHECK") && (
+              <AccountSelect
+                id={`${idPrefix}-bank-${pay.key}`}
+                label={pay.channel === "BANK" ? "Hangi banka hesabına?" : "Çek bankası / hesap"}
+                options={bankAccounts}
+                value={pay.bankName}
+                onChange={(v) => updatePayment(pay.key, { bankName: v })}
+                emptyHint="Ayarlar’dan banka hesabı ekleyin."
+              />
             )}
-            {(pay.channel === "CREDIT_CARD" || pay.channel === "CHECK") && (
-              <div>
-                <label className="label" htmlFor={`${idPrefix}-bank-${pay.key}`}>Banka adı</label>
-                <input
-                  id={`${idPrefix}-bank-${pay.key}`}
-                  className="input"
-                  value={pay.bankName}
-                  onChange={(e) => updatePayment(pay.key, { bankName: e.target.value })}
-                  required
-                />
-              </div>
+            {pay.channel === "CREDIT_CARD" && (
+              <AccountSelect
+                id={`${idPrefix}-bank-${pay.key}`}
+                label="Kredi kartı"
+                options={cardBanks}
+                value={pay.bankName}
+                onChange={(v) => updatePayment(pay.key, { bankName: v })}
+                emptyHint="Ayarlar’dan kredi kartı ekleyin."
+              />
             )}
             {pay.channel === "CHECK" && (
               <div>
@@ -409,69 +465,45 @@ export function CashbookIncomeForm({
 export function IncomeAddModal({
   month,
   students,
+  bankAccounts = [],
+  cardBanks = [],
 }: {
   month: string;
   students: CashbookStudentOption[];
+  bankAccounts?: NamedAccountOption[];
+  cardBanks?: NamedAccountOption[];
 }) {
   const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
   return (
     <FormModal buttonLabel="Gelir ekle" title="Gelir ekle" buttonClassName="btn-secondary !py-1.5 text-xs" size="lg">
-      <CashbookIncomeForm students={students} defaultDay={defaultDay} yearMonth={month} />
+      <CashbookIncomeForm
+        students={students}
+        defaultDay={defaultDay}
+        yearMonth={month}
+        bankAccounts={bankAccounts}
+        cardBanks={cardBanks}
+      />
     </FormModal>
   );
 }
-
-/** Okul gider kalemleri — Ürün her zaman ilk sırada. */
-const EXPENSE_KIND_OPTIONS = [
-  "Ürün",
-  "Hizmet",
-  "Maaş / ücret",
-  "SGK / personel primleri",
-  "Kira",
-  "Elektrik",
-  "Su",
-  "Doğalgaz / ısınma",
-  "İnternet / telefon",
-  "Temizlik",
-  "Kırtasiye",
-  "Yemek / mutfak",
-  "Ulaşım / servis",
-  "Bakım / onarım",
-  "Donanım / teknik",
-  "Yazılım / lisans",
-  "Eğitim materyali",
-  "Gezi / etkinlik",
-  "Reklam / pazarlama",
-  "Sigorta",
-  "Vergi / harç / resmi ödemeler",
-  "Muhasebe / danışmanlık",
-  "Hukuk",
-  "Güvenlik",
-  "Mobilya",
-  "Bina / tadilat",
-  "Banka / komisyon",
-] as const;
 
 export function CashbookExpenseForm({
   defaultDay,
   yearMonth,
   idPrefix = "expense",
   submitLabel = "Kaydet",
+  bankAccounts = [],
+  cardBanks = [],
 }: {
   defaultDay: string;
   yearMonth?: string;
   idPrefix?: string;
   submitLabel?: string;
+  bankAccounts?: NamedAccountOption[];
+  cardBanks?: NamedAccountOption[];
 }) {
-  const [kind, setKind] = useState<(typeof EXPENSE_KIND_OPTIONS)[number]>("Ürün");
-  const [productName, setProductName] = useState("");
+  const [expenseTitle, setExpenseTitle] = useState("");
   const [requesterName, setRequesterName] = useState("");
-  const isProduct = kind === "Ürün";
-  const expenseTitle = isProduct
-    ? productName.trim()
-      ? `Ürün · ${productName.trim()}`
-      : ""
-    : kind;
 
   return (
     <ActionForm action={createCashbookExpenseAction} submitLabel={submitLabel}>
@@ -481,39 +513,16 @@ export function CashbookExpenseForm({
 
       <div>
         <label className="label" htmlFor={`${idPrefix}-kind`}>Harcama yapılan</label>
-        <select
+        <input
           id={`${idPrefix}-kind`}
           className="input"
-          value={kind}
-          onChange={(e) => {
-            const next = e.target.value as (typeof EXPENSE_KIND_OPTIONS)[number];
-            setKind(next);
-            if (next !== "Ürün") setProductName("");
-          }}
+          value={expenseTitle}
+          onChange={(e) => setExpenseTitle(e.target.value)}
+          placeholder="Örn. mikrofon, kira, kırtasiye"
           required
-        >
-          {EXPENSE_KIND_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+          minLength={2}
+        />
       </div>
-
-      {isProduct ? (
-        <div>
-          <label className="label" htmlFor={`${idPrefix}-product`}>Ürün adı</label>
-          <input
-            id={`${idPrefix}-product`}
-            className="input"
-            value={productName}
-            onChange={(e) => setProductName(e.target.value)}
-            placeholder="Örn. mikrofon, projeksiyon, yazıcı toneri"
-            required
-            minLength={2}
-          />
-        </div>
-      ) : null}
 
       <div>
         <label className="label" htmlFor={`${idPrefix}-payee`}>
@@ -544,7 +553,11 @@ export function CashbookExpenseForm({
         />
       </div>
 
-      <ChannelFields idPrefix={idPrefix} />
+      <ChannelFields
+        idPrefix={idPrefix}
+        bankAccounts={bankAccounts}
+        cardBanks={cardBanks}
+      />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MoneyInput id={`${idPrefix}-amount`} name="amount" label="Tutar" required />
         <div>
@@ -574,11 +587,24 @@ export function CashbookExpenseForm({
   );
 }
 
-export function ExpenseAddModal({ month }: { month: string }) {
+export function ExpenseAddModal({
+  month,
+  bankAccounts = [],
+  cardBanks = [],
+}: {
+  month: string;
+  bankAccounts?: NamedAccountOption[];
+  cardBanks?: NamedAccountOption[];
+}) {
   const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
   return (
     <FormModal buttonLabel="Gider ekle" title="Gider ekle" buttonClassName="btn-secondary !py-1.5 text-xs" size="lg">
-      <CashbookExpenseForm defaultDay={defaultDay} yearMonth={month} />
+      <CashbookExpenseForm
+        defaultDay={defaultDay}
+        yearMonth={month}
+        bankAccounts={bankAccounts}
+        cardBanks={cardBanks}
+      />
     </FormModal>
   );
 }
@@ -588,26 +614,18 @@ export function ExpenseEditForm({
   entry,
   month,
   onDone,
+  bankAccounts = [],
+  cardBanks = [],
 }: {
   entry: MonthlyLedgerRow;
   month: string;
   onDone?: () => void;
+  bankAccounts?: NamedAccountOption[];
+  cardBanks?: NamedAccountOption[];
 }) {
-  const parsed = parseExpenseKind(entry.expenseTitle);
   const initialRequester = parseRequester(entry.notes);
-  const kindOptions = parsed.extraKind
-    ? ([parsed.extraKind, ...EXPENSE_KIND_OPTIONS.filter((k) => k !== parsed.extraKind)] as string[])
-    : ([...EXPENSE_KIND_OPTIONS] as string[]);
-
-  const [kind, setKind] = useState(parsed.kind);
-  const [productName, setProductName] = useState(parsed.productName);
+  const [expenseTitle, setExpenseTitle] = useState(entry.expenseTitle?.trim() || "");
   const [requesterName, setRequesterName] = useState(initialRequester);
-  const isProduct = kind === "Ürün";
-  const expenseTitle = isProduct
-    ? productName.trim()
-      ? `Ürün · ${productName.trim()}`
-      : ""
-    : kind;
 
   return (
     <ActionForm action={updateCashbookExpenseAction} submitLabel="Değişiklikleri kaydet" onSuccess={onDone}>
@@ -618,39 +636,16 @@ export function ExpenseEditForm({
 
       <div>
         <label className="label" htmlFor="edit-expense-kind">Harcama yapılan</label>
-        <select
+        <input
           id="edit-expense-kind"
           className="input"
-          value={kind}
-          onChange={(e) => {
-            const next = e.target.value;
-            setKind(next);
-            if (next !== "Ürün") setProductName("");
-          }}
+          value={expenseTitle}
+          onChange={(e) => setExpenseTitle(e.target.value)}
+          placeholder="Örn. mikrofon, kira, kırtasiye"
           required
-        >
-          {kindOptions.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+          minLength={2}
+        />
       </div>
-
-      {isProduct ? (
-        <div>
-          <label className="label" htmlFor="edit-expense-product">Ürün adı</label>
-          <input
-            id="edit-expense-product"
-            className="input"
-            value={productName}
-            onChange={(e) => setProductName(e.target.value)}
-            placeholder="Örn. mikrofon, projeksiyon, yazıcı toneri"
-            required
-            minLength={2}
-          />
-        </div>
-      ) : null}
 
       <div>
         <label className="label" htmlFor="edit-payee-id">
@@ -689,6 +684,8 @@ export function ExpenseEditForm({
         defaultCheckInstallments={
           entry.checkInstallments != null ? String(entry.checkInstallments) : ""
         }
+        bankAccounts={bankAccounts}
+        cardBanks={cardBanks}
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

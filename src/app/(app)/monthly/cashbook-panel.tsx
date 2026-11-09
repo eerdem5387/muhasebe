@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui";
 import { deleteCashbookEntryAction } from "@/app/actions/cashbook";
-import { ExpenseEditForm } from "./entry-form";
+import { ExpenseEditForm, type NamedAccountOption } from "./entry-form";
 import { CASHBOOK_CHANNEL_TR, INCOME_CATEGORY_TR } from "@/lib/cashbook";
 import { CHANNEL_TR, fmtDate, fmtMoney } from "@/lib/format";
 import type { MonthlyLedgerRow } from "@/server/monthly-ledger";
@@ -65,6 +65,8 @@ export function CashbookPanel({
   canWrite,
   bookedTotal,
   plannedTotal = 0,
+  bankAccounts = [],
+  cardBanks = [],
 }: {
   side: "INCOME" | "EXPENSE";
   month: string;
@@ -72,6 +74,8 @@ export function CashbookPanel({
   canWrite: boolean;
   bookedTotal: number;
   plannedTotal?: number;
+  bankAccounts?: NamedAccountOption[];
+  cardBanks?: NamedAccountOption[];
 }) {
   const [selected, setSelected] = useState<CashbookRow | null>(null);
   const [editing, setEditing] = useState(false);
@@ -245,6 +249,8 @@ export function CashbookPanel({
                   key={selected.id}
                   entry={selected}
                   month={month}
+                  bankAccounts={bankAccounts}
+                  cardBanks={cardBanks}
                   onDone={() => {
                     setSelected(null);
                     setEditing(false);
