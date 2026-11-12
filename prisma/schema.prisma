@@ -112,6 +112,7 @@ model Tenant {
   enrollments     Enrollment[]
   cardBanks       CardBankSetting[]
   bankAccounts    BankAccountSetting[]
+  expenseCards    ExpenseCardSetting[]
   scheduleLines   IncomeScheduleLine[]
   collections     Collection[]
   categories      LedgerCategory[]
@@ -189,6 +190,20 @@ model CardBankSetting {
 
 /// EFT/Havale ve çek işlemlerinde seçilen banka hesapları
 model BankAccountSetting {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+/// Okulun harcama / gider için kullandığı kredi kartları
+model ExpenseCardSetting {
   id        String   @id @default(cuid())
   tenantId  String
   name      String
@@ -355,6 +370,8 @@ model ExpenseRequest {
   total               Decimal?       @db.Decimal(18, 2)
   requesterName       String
   channel             RequestChannel
+  /// Seçilen banka hesabı / harcama kredi kartı adı (görüntüleme)
+  bankName            String?
   status              RequestStatus  @default(PENDING)
   /// Açıklama
   notes               String?

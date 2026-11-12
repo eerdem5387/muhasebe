@@ -66,7 +66,7 @@ export function CashbookPanel({
   bookedTotal,
   plannedTotal = 0,
   bankAccounts = [],
-  cardBanks = [],
+  expenseCards = [],
 }: {
   side: "INCOME" | "EXPENSE";
   month: string;
@@ -75,7 +75,7 @@ export function CashbookPanel({
   bookedTotal: number;
   plannedTotal?: number;
   bankAccounts?: NamedAccountOption[];
-  cardBanks?: NamedAccountOption[];
+  expenseCards?: NamedAccountOption[];
 }) {
   const [selected, setSelected] = useState<CashbookRow | null>(null);
   const [editing, setEditing] = useState(false);
@@ -87,9 +87,13 @@ export function CashbookPanel({
   const channelDisplay = selected
     ? selected.channel === "BANK" && isIncome
       ? "EFT / Havale"
-      : selected.channel
-        ? CASHBOOK_CHANNEL_TR[selected.channel] ?? selected.channelLabel
-        : selected.channelLabel
+      : selected.channel === "CREDIT_CARD"
+        ? isIncome
+          ? "POS"
+          : "Kredi kartı"
+        : selected.channel
+          ? CASHBOOK_CHANNEL_TR[selected.channel] ?? selected.channelLabel
+          : selected.channelLabel
     : "";
 
   async function handleDelete() {
@@ -250,7 +254,7 @@ export function CashbookPanel({
                   entry={selected}
                   month={month}
                   bankAccounts={bankAccounts}
-                  cardBanks={cardBanks}
+                  expenseCards={expenseCards}
                   onDone={() => {
                     setSelected(null);
                     setEditing(false);

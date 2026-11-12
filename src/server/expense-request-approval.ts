@@ -147,6 +147,7 @@ export async function completeExpenseRequest(input: {
       amount,
       occurredAt: input.occurredAt,
       channel: toCashbookChannel(req.channel),
+      bankName: req.bankName?.trim() || null,
       expenseTitle: req.title,
       notes: [
         req.notes?.trim() || null,

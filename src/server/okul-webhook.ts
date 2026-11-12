@@ -78,6 +78,7 @@ export function serializeExpenseRequest(row: {
   total: { toString(): string } | number | null;
   requesterName: string;
   channel: string;
+  bankName?: string | null;
   status: string;
   notes: string | null;
   createdById: string;
@@ -103,6 +104,7 @@ export function serializeExpenseRequest(row: {
     unitPrice: null,
     requesterName: row.requesterName,
     channel: row.channel,
+    bankName: row.bankName ?? null,
     status: row.status,
     notes: row.notes,
     createdById: row.createdById,

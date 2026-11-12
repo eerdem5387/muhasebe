@@ -4,9 +4,11 @@ import {
   createBankAccountAction,
   createCardBankAction,
   createCategoryAction,
+  createExpenseCardAction,
   deleteBankAccountAction,
   deleteCardBankAction,
   deleteCategoryAction,
+  deleteExpenseCardAction,
 } from "@/app/actions/settings";
 import { createSchoolWithAdminAction, createUserAction, deleteUserAction } from "@/app/actions/auth";
 import { runSchoolSyncAction } from "@/app/actions/sync";
@@ -23,24 +25,26 @@ export default async function SettingsPage() {
     redirect("/");
   }
 
-  const [categories, banks, bankAccounts, memberships, lastSync] = await Promise.all([
-    ctx.db.ledgerCategory.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] }),
-    ctx.db.cardBankSetting.findMany({ orderBy: { bankName: "asc" } }),
-    ctx.db.bankAccountSetting.findMany({ orderBy: { name: "asc" } }),
-    prisma.tenantUser.findMany({
-      where: { tenantId: ctx.tenantId },
-      include: { user: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.schoolSyncRun.findFirst({
-      where: { tenantId: ctx.tenantId },
-      orderBy: { startedAt: "desc" },
-    }),
-  ]);
+  const [categories, posDevices, bankAccounts, expenseCards, memberships, lastSync] =
+    await Promise.all([
+      ctx.db.ledgerCategory.findMany({ orderBy: [{ type: "asc" }, { name: "asc" }] }),
+      ctx.db.cardBankSetting.findMany({ orderBy: { bankName: "asc" } }),
+      ctx.db.bankAccountSetting.findMany({ orderBy: { name: "asc" } }),
+      ctx.db.expenseCardSetting.findMany({ orderBy: { name: "asc" } }),
+      prisma.tenantUser.findMany({
+        where: { tenantId: ctx.tenantId },
+        include: { user: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.schoolSyncRun.findFirst({
+        where: { tenantId: ctx.tenantId },
+        orderBy: { startedAt: "desc" },
+      }),
+    ]);
 
   return (
     <div>
-      <PageHeader title="Ayarlar" description="Kalemler, banka hesapları, kredi kartları ve kullanıcılar." />
+      <PageHeader title="Ayarlar" description="Kalemler, banka hesapları, POS, harcama kartları ve kullanıcılar." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-1 font-semibold tracking-tight text-ink-950">Okul kaydından öğrenci çek</h2>
@@ -155,12 +159,12 @@ export default async function SettingsPage() {
         </div>
 
         <div className="card p-5">
-          <h2 className="mb-1 font-semibold">Kredi kartları</h2>
+          <h2 className="mb-1 font-semibold">POS</h2>
           <p className="mb-4 text-sm text-ink-500">
-            Kredi kartı ödemelerinde seçilir; bloke günü öğrenci kayıtları için de kullanılır.
+            POS cihazlarından alınan gelirlerde seçilir; bloke günü öğrenci tahsilatları için de kullanılır.
           </p>
           <ul className="mb-4 divide-y divide-ink-100 text-sm">
-            {banks.map((b) => (
+            {posDevices.map((b) => (
               <li key={b.id} className="flex items-center justify-between py-2">
                 <span>{b.bankName} · bloke {b.blockDays} gün</span>
                 <MiniForm action={deleteCardBankAction}>
@@ -169,18 +173,51 @@ export default async function SettingsPage() {
                 </MiniForm>
               </li>
             ))}
-            {banks.length === 0 ? (
-              <li className="py-2 text-ink-400">Henüz kredi kartı yok.</li>
+            {posDevices.length === 0 ? (
+              <li className="py-2 text-ink-400">Henüz POS yok.</li>
             ) : null}
           </ul>
-          <ActionForm action={createCardBankAction} submitLabel="Kart ekle">
+          <ActionForm action={createCardBankAction} submitLabel="POS ekle">
             <div>
-              <label className="label" htmlFor="bankName">Kart / banka adı</label>
-              <input id="bankName" name="bankName" className="input" required placeholder="Ziraat Kurumsal Kart" />
+              <label className="label" htmlFor="bankName">POS adı</label>
+              <input id="bankName" name="bankName" className="input" required placeholder="Ziraat POS" />
             </div>
             <div>
               <label className="label" htmlFor="blockDays">Bloke süresi (gün)</label>
               <input id="blockDays" name="blockDays" type="number" min={0} className="input" defaultValue={30} required />
+            </div>
+          </ActionForm>
+        </div>
+
+        <div className="card p-5">
+          <h2 className="mb-1 font-semibold">Kredi kartları (harcama)</h2>
+          <p className="mb-4 text-sm text-ink-500">
+            Okulun harcama yaptığı kredi kartlarıdır; gider ve harcama taleplerinde seçilir.
+          </p>
+          <ul className="mb-4 divide-y divide-ink-100 text-sm">
+            {expenseCards.map((c) => (
+              <li key={c.id} className="flex items-center justify-between py-2">
+                <span>{c.name}</span>
+                <MiniForm action={deleteExpenseCardAction}>
+                  <input type="hidden" name="id" value={c.id} />
+                  <button className="text-xs text-red-600">Sil</button>
+                </MiniForm>
+              </li>
+            ))}
+            {expenseCards.length === 0 ? (
+              <li className="py-2 text-ink-400">Henüz harcama kartı yok.</li>
+            ) : null}
+          </ul>
+          <ActionForm action={createExpenseCardAction} submitLabel="Kart ekle">
+            <div>
+              <label className="label" htmlFor="expenseCardName">Kart adı</label>
+              <input
+                id="expenseCardName"
+                name="name"
+                className="input"
+                required
+                placeholder="Örn. Ziraat Kurumsal Kart"
+              />
             </div>
           </ActionForm>
         </div>

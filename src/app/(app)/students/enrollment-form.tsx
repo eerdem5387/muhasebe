@@ -71,7 +71,7 @@ export function EnrollmentForm({ students, banks }: { students: Student[]; banks
           <label className="label" htmlFor="paymentChannel">Ödeme şekli</label>
           <select id="paymentChannel" name="paymentChannel" className="input" value={channel} onChange={(e) => setChannel(e.target.value)}>
             <option value="EFT">EFT / Havale</option>
-            <option value="CREDIT_CARD">Kredi kartı</option>
+            <option value="CREDIT_CARD">POS</option>
             <option value="CHECK">Çek</option>
             <option value="CASH">Nakit</option>
           </select>
@@ -79,7 +79,7 @@ export function EnrollmentForm({ students, banks }: { students: Student[]; banks
         {channel === "CREDIT_CARD" && (
           <>
             <div>
-              <label className="label" htmlFor="cardBankId">Banka anlaşması</label>
+              <label className="label" htmlFor="cardBankId">POS</label>
               <select id="cardBankId" name="cardBankId" className="input" value={bankId} onChange={(e) => setBankId(e.target.value)}>
                 {banks.map((b) => (
                   <option key={b.id} value={b.id}>{b.bankName} ({b.blockDays} gün bloke)</option>

@@ -38,12 +38,16 @@ export const categorySchema = z.object({
 });
 
 export const cardBankSchema = z.object({
-  bankName: z.string().trim().min(2, "Kredi kartı / banka adı gerekli."),
+  bankName: z.string().trim().min(2, "POS adı gerekli."),
   blockDays: z.coerce.number().int().min(0).max(365),
 });
 
 export const bankAccountSchema = z.object({
   name: z.string().trim().min(2, "Hesap adı gerekli."),
+});
+
+export const expenseCardSchema = z.object({
+  name: z.string().trim().min(2, "Kredi kartı adı gerekli."),
 });
 
 export const studentSchema = z.object({
@@ -190,28 +194,45 @@ export const expenseSchema = z.object({
   requestId: opt,
 });
 
-export const expenseRequestSchema = z.object({
-  title: z.string().trim().min(3, "Harcama kalemi gerekli."),
-  requesterName: z.string().trim().min(2, "Talep eden adı gerekli."),
-  channel: requestChannelSchema,
-  notes: z.string().trim().min(2, "Açıklama gerekli."),
-  /** Checkbox işaretliyse gönderilir; boşsa tutarsız talep. */
-  total: z
-    .string()
-    .trim()
-    .optional()
-    .or(z.literal(""))
-    .superRefine((v, ctx) => {
-      if (!v) return;
-      if (toMoneyCanonical(v) == null) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Geçerli bir tutar girin (örn. 19350,50).",
-        });
-      }
-    })
-    .transform((v) => (v ? toMoneyCanonical(v)! : null)),
-});
+export const expenseRequestSchema = z
+  .object({
+    title: z.string().trim().min(3, "Harcama kalemi gerekli."),
+    requesterName: z.string().trim().min(2, "Talep eden adı gerekli."),
+    channel: requestChannelSchema,
+    bankName: opt,
+    notes: z.string().trim().min(2, "Açıklama gerekli."),
+    /** Checkbox işaretliyse gönderilir; boşsa tutarsız talep. */
+    total: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal(""))
+      .superRefine((v, ctx) => {
+        if (!v) return;
+        if (toMoneyCanonical(v) == null) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Geçerli bir tutar girin (örn. 19350,50).",
+          });
+        }
+      })
+      .transform((v) => (v ? toMoneyCanonical(v)! : null)),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      (data.channel === "CREDIT_CARD" || data.channel === "BANK" || data.channel === "CHECK") &&
+      !data.bankName?.trim()
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["bankName"],
+        message:
+          data.channel === "CREDIT_CARD"
+            ? "Harcama kredi kartı seçin."
+            : "Banka hesabı seçin.",
+      });
+    }
+  });
 
 export const completeExpenseRequestSchema = z.object({
   id: z.string().trim().min(1),
@@ -271,7 +292,7 @@ const cashbookPaymentLineSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["bankName"],
-        message: "Kredi kartı için banka adı gerekli.",
+        message: "POS seçin.",
       });
     }
     if (data.channel === "BANK" && !data.bankName?.trim()) {
@@ -394,7 +415,7 @@ function refineCashbookExpense(
     ctx.addIssue({
       code: "custom",
       path: ["bankName"],
-      message: "Kredi kartı için banka adı gerekli.",
+      message: "Harcama kredi kartı seçin.",
     });
   }
 }

@@ -33,11 +33,11 @@ type PaymentLine = {
   occurredAt: string;
 };
 
-/** Gelir ekle: BANK = EFT/Havale (hesap sorusu için). Gider formu kendi etiketini kullanır. */
+/** Gelir: CREDIT_CARD = POS tahsilatı. Gider: CREDIT_CARD = okul harcama kartı. */
 const INCOME_CHANNEL_OPTIONS = [
   { value: "BANK", label: "EFT / Havale" },
   { value: "CHECK", label: CASHBOOK_CHANNEL_TR.CHECK },
-  { value: "CREDIT_CARD", label: CASHBOOK_CHANNEL_TR.CREDIT_CARD },
+  { value: "CREDIT_CARD", label: "POS" },
   { value: "CASH", label: CASHBOOK_CHANNEL_TR.CASH },
   { value: "PROMISSORY", label: CASHBOOK_CHANNEL_TR.PROMISSORY },
 ] as const;
@@ -45,7 +45,7 @@ const INCOME_CHANNEL_OPTIONS = [
 const EXPENSE_CHANNEL_OPTIONS = [
   { value: "BANK", label: CASHBOOK_CHANNEL_TR.BANK },
   { value: "CHECK", label: CASHBOOK_CHANNEL_TR.CHECK },
-  { value: "CREDIT_CARD", label: CASHBOOK_CHANNEL_TR.CREDIT_CARD },
+  { value: "CREDIT_CARD", label: "Kredi kartı" },
   { value: "CASH", label: CASHBOOK_CHANNEL_TR.CASH },
   { value: "PROMISSORY", label: CASHBOOK_CHANNEL_TR.PROMISSORY },
 ] as const;
@@ -122,14 +122,15 @@ function ChannelFields({
   defaultBankName = "",
   defaultCheckInstallments = "",
   bankAccounts = [],
-  cardBanks = [],
+  expenseCards = [],
 }: {
   idPrefix: string;
   defaultChannel?: string;
   defaultBankName?: string;
   defaultCheckInstallments?: string;
   bankAccounts?: NamedAccountOption[];
-  cardBanks?: NamedAccountOption[];
+  /** Okulun harcama kredi kartları */
+  expenseCards?: NamedAccountOption[];
 }) {
   const [channel, setChannel] = useState(defaultChannel);
   return (
@@ -166,9 +167,9 @@ function ChannelFields({
           id={`${idPrefix}-bank`}
           name="bankName"
           label="Kredi kartı"
-          options={cardBanks}
+          options={expenseCards}
           defaultValue={defaultBankName}
-          emptyHint="Ayarlar’dan kredi kartı ekleyin."
+          emptyHint="Ayarlar’dan harcama kredi kartı ekleyin."
         />
       )}
       {channel === "CHECK" && (
@@ -210,7 +211,7 @@ export function CashbookIncomeForm({
   idPrefix = "income",
   submitLabel = "Kaydet",
   bankAccounts = [],
-  cardBanks = [],
+  posDevices = [],
 }: {
   students: CashbookStudentOption[];
   defaultDay: string;
@@ -219,7 +220,8 @@ export function CashbookIncomeForm({
   idPrefix?: string;
   submitLabel?: string;
   bankAccounts?: NamedAccountOption[];
-  cardBanks?: NamedAccountOption[];
+  /** POS cihazları (gelir tahsilatı) */
+  posDevices?: NamedAccountOption[];
 }) {
   const [category, setCategory] = useState("STUDENT");
   const [studentQuery, setStudentQuery] = useState("");
@@ -401,11 +403,11 @@ export function CashbookIncomeForm({
             {pay.channel === "CREDIT_CARD" && (
               <AccountSelect
                 id={`${idPrefix}-bank-${pay.key}`}
-                label="Kredi kartı"
-                options={cardBanks}
+                label="POS"
+                options={posDevices}
                 value={pay.bankName}
                 onChange={(v) => updatePayment(pay.key, { bankName: v })}
-                emptyHint="Ayarlar’dan kredi kartı ekleyin."
+                emptyHint="Ayarlar’dan POS ekleyin."
               />
             )}
             {pay.channel === "CHECK" && (
@@ -466,12 +468,12 @@ export function IncomeAddModal({
   month,
   students,
   bankAccounts = [],
-  cardBanks = [],
+  posDevices = [],
 }: {
   month: string;
   students: CashbookStudentOption[];
   bankAccounts?: NamedAccountOption[];
-  cardBanks?: NamedAccountOption[];
+  posDevices?: NamedAccountOption[];
 }) {
   const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
   return (
@@ -481,7 +483,7 @@ export function IncomeAddModal({
         defaultDay={defaultDay}
         yearMonth={month}
         bankAccounts={bankAccounts}
-        cardBanks={cardBanks}
+        posDevices={posDevices}
       />
     </FormModal>
   );
@@ -493,14 +495,14 @@ export function CashbookExpenseForm({
   idPrefix = "expense",
   submitLabel = "Kaydet",
   bankAccounts = [],
-  cardBanks = [],
+  expenseCards = [],
 }: {
   defaultDay: string;
   yearMonth?: string;
   idPrefix?: string;
   submitLabel?: string;
   bankAccounts?: NamedAccountOption[];
-  cardBanks?: NamedAccountOption[];
+  expenseCards?: NamedAccountOption[];
 }) {
   const [expenseTitle, setExpenseTitle] = useState("");
   const [requesterName, setRequesterName] = useState("");
@@ -556,7 +558,7 @@ export function CashbookExpenseForm({
       <ChannelFields
         idPrefix={idPrefix}
         bankAccounts={bankAccounts}
-        cardBanks={cardBanks}
+        expenseCards={expenseCards}
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <MoneyInput id={`${idPrefix}-amount`} name="amount" label="Tutar" required />
@@ -590,11 +592,11 @@ export function CashbookExpenseForm({
 export function ExpenseAddModal({
   month,
   bankAccounts = [],
-  cardBanks = [],
+  expenseCards = [],
 }: {
   month: string;
   bankAccounts?: NamedAccountOption[];
-  cardBanks?: NamedAccountOption[];
+  expenseCards?: NamedAccountOption[];
 }) {
   const defaultDay = todayISO().startsWith(month) ? todayISO() : `${month}-01`;
   return (
@@ -603,7 +605,7 @@ export function ExpenseAddModal({
         defaultDay={defaultDay}
         yearMonth={month}
         bankAccounts={bankAccounts}
-        cardBanks={cardBanks}
+        expenseCards={expenseCards}
       />
     </FormModal>
   );
@@ -615,13 +617,13 @@ export function ExpenseEditForm({
   month,
   onDone,
   bankAccounts = [],
-  cardBanks = [],
+  expenseCards = [],
 }: {
   entry: MonthlyLedgerRow;
   month: string;
   onDone?: () => void;
   bankAccounts?: NamedAccountOption[];
-  cardBanks?: NamedAccountOption[];
+  expenseCards?: NamedAccountOption[];
 }) {
   const initialRequester = parseRequester(entry.notes);
   const [expenseTitle, setExpenseTitle] = useState(entry.expenseTitle?.trim() || "");
@@ -685,7 +687,7 @@ export function ExpenseEditForm({
           entry.checkInstallments != null ? String(entry.checkInstallments) : ""
         }
         bankAccounts={bankAccounts}
-        cardBanks={cardBanks}
+        expenseCards={expenseCards}
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

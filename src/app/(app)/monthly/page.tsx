@@ -21,26 +21,33 @@ export default async function MonthlyReportPage({
   const canWrite = canManageOperations(ctx.role, ctx.isSuperAdmin);
   const month = parseMonth((await searchParams).month);
 
-  const [{ incomeRows, expenseRows }, students, bankAccountRows, cardBankRows] = await Promise.all([
-    loadMonthlyLedger(ctx.db, month),
-    ctx.db.student.findMany({
-      select: { id: true, fullName: true, classroom: true },
-      orderBy: { fullName: "asc" },
-      take: 2000,
-    }),
-    ctx.db.bankAccountSetting.findMany({
-      where: { active: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    ctx.db.cardBankSetting.findMany({
-      where: { active: true },
-      orderBy: { bankName: "asc" },
-      select: { id: true, bankName: true },
-    }),
-  ]);
+  const [{ incomeRows, expenseRows }, students, bankAccountRows, posRows, expenseCardRows] =
+    await Promise.all([
+      loadMonthlyLedger(ctx.db, month),
+      ctx.db.student.findMany({
+        select: { id: true, fullName: true, classroom: true },
+        orderBy: { fullName: "asc" },
+        take: 2000,
+      }),
+      ctx.db.bankAccountSetting.findMany({
+        where: { active: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      ctx.db.cardBankSetting.findMany({
+        where: { active: true },
+        orderBy: { bankName: "asc" },
+        select: { id: true, bankName: true },
+      }),
+      ctx.db.expenseCardSetting.findMany({
+        where: { active: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+    ]);
   const bankAccounts = bankAccountRows.map((a) => ({ id: a.id, name: a.name }));
-  const cardBanks = cardBankRows.map((c) => ({ id: c.id, name: c.bankName }));
+  const posDevices = posRows.map((c) => ({ id: c.id, name: c.bankName }));
+  const expenseCards = expenseCardRows.map((c) => ({ id: c.id, name: c.name }));
   const incomeBooked = bookedTotal(incomeRows);
   const incomePlanned = plannedTotal(incomeRows);
   const expenseBooked = bookedTotal(expenseRows);
@@ -57,7 +64,8 @@ export default async function MonthlyReportPage({
             <HistoricalCashbookModal
               students={students}
               bankAccounts={bankAccounts}
-              cardBanks={cardBanks}
+              posDevices={posDevices}
+              expenseCards={expenseCards}
             />
           ) : null}
         </div>
@@ -82,7 +90,7 @@ export default async function MonthlyReportPage({
                     month={month}
                     students={students}
                     bankAccounts={bankAccounts}
-                    cardBanks={cardBanks}
+                    posDevices={posDevices}
                   />
                 </div>
               ) : null}
@@ -95,7 +103,7 @@ export default async function MonthlyReportPage({
               bookedTotal={incomeBooked}
               plannedTotal={incomePlanned}
               bankAccounts={bankAccounts}
-              cardBanks={cardBanks}
+              expenseCards={expenseCards}
             />
           </section>
 
@@ -107,7 +115,7 @@ export default async function MonthlyReportPage({
                   <ExpenseAddModal
                     month={month}
                     bankAccounts={bankAccounts}
-                    cardBanks={cardBanks}
+                    expenseCards={expenseCards}
                   />
                 </div>
               ) : null}
@@ -119,7 +127,7 @@ export default async function MonthlyReportPage({
               canWrite={canWrite}
               bookedTotal={expenseBooked}
               bankAccounts={bankAccounts}
-              cardBanks={cardBanks}
+              expenseCards={expenseCards}
             />
           </section>
         </div>

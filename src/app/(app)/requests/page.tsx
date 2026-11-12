@@ -13,6 +13,7 @@ import { RequestDateFilter } from "./date-filter";
 import { DeleteRequestButton } from "./delete-button";
 import { MoneyInput } from "@/components/money-input";
 import { RequestAmountFields } from "./request-amount-fields";
+import { RequestChannelFields } from "./request-channel-fields";
 
 const color = {
   PENDING: "amber",
@@ -45,10 +46,22 @@ export default async function RequestsPage({
       }
     : undefined;
 
-  const requests = await ctx.db.expenseRequest.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-  });
+  const [requests, bankAccounts, expenseCards] = await Promise.all([
+    ctx.db.expenseRequest.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    }),
+    ctx.db.bankAccountSetting.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    ctx.db.expenseCardSetting.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   return (
     <div>
@@ -79,16 +92,10 @@ export default async function RequestsPage({
                     required
                   />
                 </div>
-                <div>
-                  <label className="label" htmlFor="channel">Harcama kanalı</label>
-                  <select id="channel" name="channel" className="input" defaultValue="BANK">
-                    <option value="BANK">Banka</option>
-                    <option value="CHECK">Çek</option>
-                    <option value="CREDIT_CARD">Kredi kartı</option>
-                    <option value="CASH">Nakit</option>
-                    <option value="PROMISSORY">Senet</option>
-                  </select>
-                </div>
+                <RequestChannelFields
+                  bankAccounts={bankAccounts}
+                  expenseCards={expenseCards}
+                />
                 <RequestAmountFields />
                 <div>
                   <label className="label" htmlFor="notes">Açıklama</label>
@@ -120,6 +127,7 @@ export default async function RequestsPage({
                 </div>
                 <p className="mt-0.5 text-xs text-ink-500">
                   {fmtDate(r.createdAt)} · {r.requesterName} · {CHANNEL_TR[r.channel] ?? r.channel}
+                  {r.bankName ? ` · ${r.bankName}` : ""}
                   {r.notes ? ` · ${r.notes}` : ""}
                 </p>
                 <p className="mt-0.5 text-[11px] text-ink-400">

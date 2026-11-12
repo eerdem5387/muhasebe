@@ -69,7 +69,7 @@ function ChannelFields({ name, id, defaultValue }: { name: string; id?: string; 
   return (
     <select id={id ?? name} name={name} className="input" defaultValue={defaultValue ?? "EFT"} required>
       <option value="EFT">EFT / Havale</option>
-      <option value="CREDIT_CARD">Kredi kartı</option>
+      <option value="CREDIT_CARD">POS</option>
       <option value="CHECK">Çek</option>
       <option value="CASH">Nakit</option>
     </select>

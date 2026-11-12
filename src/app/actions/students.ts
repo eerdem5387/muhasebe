@@ -41,7 +41,7 @@ export async function createEnrollmentAction(
   const data = parsed.data;
 
   if (data.paymentChannel === "CREDIT_CARD") {
-    if (!data.cardBankId) return { error: "Kredi kartı için banka anlaşması seçin." };
+    if (!data.cardBankId) return { error: "POS seçin." };
     if (data.installmentCount < 1) return { error: "Taksit sayısı en az 1 olmalı." };
   }
 

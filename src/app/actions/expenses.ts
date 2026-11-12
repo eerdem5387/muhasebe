@@ -102,6 +102,7 @@ export async function createExpenseRequestAction(
         total: parsed.data.total ? new Prisma.Decimal(parsed.data.total) : null,
         requesterName: parsed.data.requesterName,
         channel: parsed.data.channel,
+        bankName: parsed.data.bankName?.trim() || null,
         notes: parsed.data.notes || null,
         createdById: ctx.userId,
       },

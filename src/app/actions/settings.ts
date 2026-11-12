@@ -2,13 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSettings } from "@/lib/context";
-import { bankAccountSchema, cardBankSchema, categorySchema } from "@/lib/validation";
+import {
+  bankAccountSchema,
+  cardBankSchema,
+  categorySchema,
+  expenseCardSchema,
+} from "@/lib/validation";
 import { toErrorMessage } from "@/lib/errors";
 import type { ActionState } from "./types";
 
 function revalidateFinanceSettings() {
   revalidatePath("/settings");
   revalidatePath("/monthly");
+  revalidatePath("/requests");
 }
 
 export async function createCategoryAction(
@@ -55,13 +61,41 @@ export async function createCardBankAction(
     return { error: toErrorMessage(err) };
   }
   revalidateFinanceSettings();
-  return { success: "Kredi kartı eklendi." };
+  return { success: "POS eklendi." };
 }
 
 export async function deleteCardBankAction(formData: FormData): Promise<void> {
   const ctx = await requireSettings();
   const id = String(formData.get("id") ?? "");
   if (id) await ctx.db.cardBankSetting.deleteMany({ where: { id } });
+  revalidateFinanceSettings();
+}
+
+export async function createExpenseCardAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = expenseCardSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Geçersiz veri." };
+  try {
+    const ctx = await requireSettings();
+    await ctx.db.expenseCardSetting.create({
+      data: {
+        tenantId: ctx.tenantId,
+        name: parsed.data.name,
+      },
+    });
+  } catch (err) {
+    return { error: toErrorMessage(err) };
+  }
+  revalidateFinanceSettings();
+  return { success: "Harcama kredi kartı eklendi." };
+}
+
+export async function deleteExpenseCardAction(formData: FormData): Promise<void> {
+  const ctx = await requireSettings();
+  const id = String(formData.get("id") ?? "");
+  if (id) await ctx.db.expenseCardSetting.deleteMany({ where: { id } });
   revalidateFinanceSettings();
 }
 
