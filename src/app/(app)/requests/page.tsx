@@ -1,4 +1,5 @@
 import { requireAuth, canManageOperations } from "@/lib/context";
+import { approvalProgress } from "@/lib/expense-approval-rule";
 import {
   completeExpenseRequestAction,
   createExpenseRequestAction,
@@ -67,7 +68,7 @@ export default async function RequestsPage({
     <div>
       <PageHeader
         title="Harcama talepleri"
-        description="Talep oluşturulur → kurucu okul panelinden onaylar → muhasebe tutarı girip (veya önceden girilmiş tutarı doğrulayıp) tamamlar."
+        description="Talep oluşturulur → okul panelinden onaylanır (5.000 ₺ üzeri: kurucu + müdür, altı: biri yeterli) → muhasebe tutarı girip (veya önceden girilmiş tutarı doğrulayıp) tamamlar."
         actions={
           canWrite ? (
             <FormModal buttonLabel="Talep oluştur" title="Yeni talep">
@@ -116,6 +117,16 @@ export default async function RequestsPage({
 
       <RequestDateFilter date={date} today={today} />
 
+      {(() => {
+        const partialCount = requests.filter((r) => approvalProgress(r).partial).length;
+        if (partialCount === 0) return null;
+        return (
+          <div className="mb-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-900">
+            {partialCount} talep tek onay aldı, ikinci onayı (kurucu veya müdür) bekliyor.
+          </div>
+        );
+      })()}
+
       <div className="space-y-2.5">
         {requests.map((r) => (
           <div key={r.id} className="card px-4 py-3">
@@ -124,30 +135,49 @@ export default async function RequestsPage({
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="truncate text-sm font-semibold text-ink-900">{r.title}</h2>
                   <Badge color={color[r.status]}>{STATUS_TR[r.status] ?? r.status}</Badge>
+                  {(() => {
+                    const progress = approvalProgress(r);
+                    if (!progress.partial) return null;
+                    return (
+                      <Badge color="purple">
+                        1/2 onay · {progress.waitingFor === "principal" ? "müdür" : "kurucu"} onayı bekleniyor
+                      </Badge>
+                    );
+                  })()}
                 </div>
                 <p className="mt-0.5 text-xs text-ink-500">
                   {fmtDate(r.createdAt)} · {r.requesterName} · {CHANNEL_TR[r.channel] ?? r.channel}
                   {r.bankName ? ` · ${r.bankName}` : ""}
                   {r.notes ? ` · ${r.notes}` : ""}
                 </p>
-                <p className="mt-0.5 text-[11px] text-ink-400">
-                  Kurucu:{" "}
-                  {r.founderApprovedAt
-                    ? r.founderApprovedByName
-                      ? `${r.founderApprovedByName} onayladı`
-                      : "onayladı"
-                    : "bekliyor"}
-                  {" · "}
-                  Muhasebe:{" "}
-                  {r.completedAt
-                    ? "tamamladı"
-                    : r.status === "APPROVED"
-                      ? "tutar bekleniyor"
-                      : "—"}
-                  {r.status === "REJECTED" && r.rejectedByName
-                    ? ` · Red: ${r.rejectedByName}`
-                    : ""}
-                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className="text-ink-400">
+                    {approvalProgress(r).rule === "dual"
+                      ? "Çift onay (5.000 ₺ üzeri):"
+                      : "Tek onay yeterli:"}
+                  </span>
+                  <ApprovalChip
+                    label="Kurucu"
+                    at={r.founderApprovedAt}
+                    name={r.founderApprovedByName}
+                    mutedText={r.status === "REJECTED" ? "—" : r.status !== "PENDING" ? "gerekmedi" : null}
+                  />
+                  <ApprovalChip
+                    label="Müdür"
+                    at={r.principalApprovedAt}
+                    name={r.principalApprovedByName}
+                    mutedText={r.status === "REJECTED" ? "—" : r.status !== "PENDING" ? "gerekmedi" : null}
+                  />
+                  <span className="text-ink-400">
+                    · Muhasebe:{" "}
+                    {r.completedAt
+                      ? "tamamladı"
+                      : r.status === "APPROVED"
+                        ? "tutar bekleniyor"
+                        : "—"}
+                    {r.status === "REJECTED" && r.rejectedByName ? ` · Red: ${r.rejectedByName}` : ""}
+                  </span>
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <p className="text-sm font-semibold tabular-nums text-ink-900">
@@ -211,4 +241,36 @@ function shiftIsoDay(iso: string, delta: number): string {
   const dt = new Date(y, (m ?? 1) - 1, (d ?? 1) + delta);
   const z = (n: number) => String(n).padStart(2, "0");
   return `${dt.getFullYear()}-${z(dt.getMonth() + 1)}-${z(dt.getDate())}`;
+}
+
+function ApprovalChip({
+  label,
+  at,
+  name,
+  mutedText,
+}: {
+  label: string;
+  at: Date | null;
+  name: string | null;
+  /** Onay artık beklenmiyorsa (talep sonuçlandı) gösterilecek metin */
+  mutedText?: string | null;
+}) {
+  if (at) {
+    return (
+      <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800">
+        ✓ {label}: {name || "onayladı"}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={
+        mutedText
+          ? "rounded-full bg-ink-50 px-2 py-0.5 text-ink-400"
+          : "rounded-full bg-amber-50 px-2 py-0.5 text-amber-800"
+      }
+    >
+      ○ {label}: {mutedText ?? "bekliyor"}
+    </span>
+  );
 }

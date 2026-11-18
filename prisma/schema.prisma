@@ -378,6 +378,8 @@ model ExpenseRequest {
   createdById         String
   principalApprovedAt DateTime?
   principalApprovedBy String?
+  /// Onaylayan müdürün ad soyadı
+  principalApprovedByName String?
   founderApprovedAt   DateTime?
   founderApprovedBy   String?
   /// Onaylayan kurucu / yetkilinin ad soyadı

@@ -84,6 +84,7 @@ export function serializeExpenseRequest(row: {
   createdById: string;
   principalApprovedAt: Date | null;
   principalApprovedBy: string | null;
+  principalApprovedByName?: string | null;
   founderApprovedAt: Date | null;
   founderApprovedBy: string | null;
   founderApprovedByName?: string | null;
@@ -113,6 +114,7 @@ export function serializeExpenseRequest(row: {
     founderApprovedAt: row.founderApprovedAt?.toISOString() ?? null,
     founderApprovedBy: row.founderApprovedBy,
     founderApprovedByName: row.founderApprovedByName ?? null,
+    principalApprovedByName: row.principalApprovedByName ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
     completedById: row.completedById ?? null,
     rejectedAt: row.rejectedAt?.toISOString() ?? null,

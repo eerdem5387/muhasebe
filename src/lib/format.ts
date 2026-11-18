@@ -127,7 +127,7 @@ export const STATUS_TR: Record<string, string> = {
   REALIZED: "Gerçekleşen",
   ACTIVE: "Aktif",
   CANCELLED: "İptal",
-  PENDING: "Kurucu onayı bekliyor",
+  PENDING: "Onay bekliyor",
   APPROVED: "Onaylandı — tutar bekleniyor",
   COMPLETED: "Tamamlandı",
   REJECTED: "Reddedildi",

@@ -2,6 +2,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma, getTenantDb } from "@/lib/prisma";
 import { CHANNEL_TR, toYearMonth } from "@/lib/format";
+import { isApprovalSatisfied, type ApprovalSlot } from "@/lib/expense-approval-rule";
 import {
   pushFinanceEventToOkul,
   serializeCashbookEntry,
@@ -22,7 +23,7 @@ function toCashbookChannel(
 export async function applyExpenseRequestApproval(input: {
   tenantId: string;
   requestId: string;
-  as: "principal" | "founder";
+  as: ApprovalSlot;
   actorId: string;
   actorName?: string | null;
   approvedAt?: Date;
@@ -37,25 +38,41 @@ export async function applyExpenseRequestApproval(input: {
   const now = input.approvedAt ?? new Date();
   const actorName = input.actorName?.trim() || null;
 
-  // Yeni senaryo: yalnızca kurucu onayı yeterlidir.
-  if (input.as === "founder") {
+  // 1) Rolün kendi onay alanını doldur (aynı rol ikinci kez onaylayamaz).
+  const slotWrite =
+    input.as === "founder"
+      ? await db.expenseRequest.updateMany({
+          where: { id: input.requestId, status: "PENDING", founderApprovedAt: null },
+          data: {
+            founderApprovedAt: now,
+            founderApprovedBy: input.actorId,
+            founderApprovedByName: actorName,
+          },
+        })
+      : await db.expenseRequest.updateMany({
+          where: { id: input.requestId, status: "PENDING", principalApprovedAt: null },
+          data: {
+            principalApprovedAt: now,
+            principalApprovedBy: input.actorId,
+            principalApprovedByName: actorName,
+          },
+        });
+
+  if (slotWrite.count === 0) {
+    const roleTr = input.as === "founder" ? "Kurucu" : "Müdür";
+    return {
+      ok: false as const,
+      error: `${roleTr} onayı bu talep için zaten verilmiş.`,
+      status: 409,
+    };
+  }
+
+  // 2) Kural sağlanıyorsa talebi onayla (5.000 ₺ üzeri: kurucu + müdür, altı: biri yeterli).
+  const afterSlot = await db.expenseRequest.findFirst({ where: { id: input.requestId } });
+  if (afterSlot && afterSlot.status === "PENDING" && isApprovalSatisfied(afterSlot)) {
     await db.expenseRequest.updateMany({
       where: { id: input.requestId, status: "PENDING" },
-      data: {
-        founderApprovedAt: now,
-        founderApprovedBy: input.actorId,
-        founderApprovedByName: actorName,
-        status: "APPROVED",
-      },
-    });
-  } else {
-    // Geriye dönük müdür kaydı (tek başına onaylamaz)
-    await db.expenseRequest.updateMany({
-      where: { id: input.requestId, status: "PENDING" },
-      data: {
-        principalApprovedAt: now,
-        principalApprovedBy: input.actorId,
-      },
+      data: { status: "APPROVED" },
     });
   }
 
@@ -119,7 +136,7 @@ export async function completeExpenseRequest(input: {
   const req = await db.expenseRequest.findFirst({ where: { id: input.requestId } });
   if (!req) return { ok: false as const, error: "Talep bulunamadı.", status: 404 };
   if (req.status !== "APPROVED") {
-    return { ok: false as const, error: "Yalnızca kurucu onaylı talepler tamamlanabilir.", status: 409 };
+    return { ok: false as const, error: "Yalnızca onaylanmış talepler tamamlanabilir.", status: 409 };
   }
   if (!Number.isFinite(input.amount) || input.amount <= 0) {
     return { ok: false as const, error: "Geçerli bir tutar girin.", status: 400 };
